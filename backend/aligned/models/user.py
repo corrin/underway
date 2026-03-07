@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String
+from sqlalchemy import String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from aligned.models.base import Base
@@ -21,8 +21,8 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(MySQLUUID, primary_key=True, default=uuid.uuid4)
     app_login: Mapped[str] = mapped_column(String(120), unique=True, index=True)
 
-    ai_api_key: Mapped[str | None] = mapped_column(default=None)
-    ai_instructions: Mapped[str | None] = mapped_column(default=None)
+    ai_api_key: Mapped[str | None] = mapped_column(String(255), default=None)
+    ai_instructions: Mapped[str | None] = mapped_column(Text, default=None)
     schedule_slot_duration: Mapped[int | None] = mapped_column(default=60)
     llm_model: Mapped[str | None] = mapped_column(String(100), default=None)
 

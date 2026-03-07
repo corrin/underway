@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from aligned.models.base import Base
@@ -29,7 +29,7 @@ class Task(Base):
     provider_task_id: Mapped[str] = mapped_column(String(255))
 
     title: Mapped[str] = mapped_column(String(500))
-    description: Mapped[str | None] = mapped_column(default=None)
+    description: Mapped[str | None] = mapped_column(Text, default=None)
     status: Mapped[str] = mapped_column(String(50))
     due_date: Mapped[datetime | None] = mapped_column(default=None)
     priority: Mapped[int | None] = mapped_column(default=None)

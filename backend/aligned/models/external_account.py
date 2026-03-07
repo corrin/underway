@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, and_, or_, update
+from sqlalchemy import ForeignKey, String, Text, and_, or_, update
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from aligned.models.base import Base
@@ -39,13 +39,13 @@ class ExternalAccount(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(MySQLUUID, ForeignKey("app_user.id"))
     provider: Mapped[str] = mapped_column(String(50))
 
-    token: Mapped[str | None] = mapped_column(default=None)
-    api_key: Mapped[str | None] = mapped_column(default=None)
-    refresh_token: Mapped[str | None] = mapped_column(default=None)
+    token: Mapped[str | None] = mapped_column(Text, default=None)
+    api_key: Mapped[str | None] = mapped_column(String(255), default=None)
+    refresh_token: Mapped[str | None] = mapped_column(Text, default=None)
     token_uri: Mapped[str | None] = mapped_column(String(255), default=None)
     client_id: Mapped[str | None] = mapped_column(String(255), default=None)
     client_secret: Mapped[str | None] = mapped_column(String(255), default=None)
-    scopes: Mapped[str | None] = mapped_column(default=None)
+    scopes: Mapped[str | None] = mapped_column(Text, default=None)
 
     is_primary_calendar: Mapped[bool] = mapped_column(default=False)
     is_primary_tasks: Mapped[bool] = mapped_column(default=False)

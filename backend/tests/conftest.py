@@ -1,5 +1,6 @@
 """Shared test fixtures."""
 
+import os
 from collections.abc import AsyncGenerator
 
 import pytest
@@ -11,25 +12,32 @@ from aligned.config import Settings
 from aligned.models import Base
 from aligned.models.base import get_session
 
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "mysql+aiomysql://aligned:aligned-dev-pass@localhost:3306/aligned_test",
+)
+
 
 @pytest.fixture
 def test_settings() -> Settings:
-    """Settings for testing — uses in-memory SQLite."""
+    """Settings for testing — uses MariaDB test database."""
     return Settings(
-        database_url="sqlite+aiosqlite:///:memory:",
+        database_url=TEST_DATABASE_URL,
         jwt_secret_key="test-secret",
     )
 
 
 @pytest.fixture
 async def db_session(test_settings: Settings) -> AsyncGenerator[AsyncSession, None]:
-    """Create a fresh in-memory database and yield a session."""
+    """Create tables, yield a session, then drop all tables for isolation."""
     engine = create_async_engine(test_settings.database_url)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
         yield session
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
@@ -38,7 +46,6 @@ async def client(test_settings: Settings, db_session: AsyncSession) -> AsyncGene
     """Async HTTP client wired to the test app."""
     app = create_app(settings=test_settings)
 
-    # Override the session dependency
     async def _override_session() -> AsyncGenerator[AsyncSession, None]:
         yield db_session
 

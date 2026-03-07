@@ -11,7 +11,6 @@ fastrest = {version = "*", extras = ["sqlalchemy"]}
 uvicorn = {version = "*", extras = ["standard"]}
 sqlalchemy = {version = ">=2.0", extras = ["asyncio"]}
 aiomysql = "*"
-aiosqlite = "*"
 pydantic = ">=2.0"
 pydantic-settings = "*"
 python-dotenv = "*"

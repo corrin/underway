@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, ForeignKey, Integer, String
+from sqlalchemy import JSON, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from aligned.models.base import Base
@@ -42,7 +42,7 @@ class ChatMessage(Base):
     id: Mapped[uuid.UUID] = mapped_column(MySQLUUID, primary_key=True, default=uuid.uuid4)
     conversation_id: Mapped[uuid.UUID] = mapped_column(MySQLUUID, ForeignKey("conversation.id"))
     role: Mapped[str] = mapped_column(String(20))
-    content: Mapped[str | None] = mapped_column(default=None)
+    content: Mapped[str | None] = mapped_column(Text, default=None)
     tool_calls: Mapped[Any | None] = mapped_column(type_=JSON, default=None)
     tool_call_id: Mapped[str | None] = mapped_column(String(255), default=None)
     sequence: Mapped[int] = mapped_column(Integer, default=0)
