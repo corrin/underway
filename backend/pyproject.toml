@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aligned"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.100",
+    "fastrest[sqlalchemy]",
+    "uvicorn[standard]",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiomysql",
+    "aiosqlite",
+    "pydantic>=2.0",
+    "pydantic-settings",
+    "python-dotenv",
+    "pyjwt[crypto]",
+    "httpx",
+    "litellm",
+    "todoist-api-python",
+    "O365",
+    "msal",
+    "google-api-python-client",
+    "google-auth-oauthlib",
+    "alembic",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-playwright",
+    "playwright",
+    "mypy",
+    "ruff",
+    "pre-commit",
+]
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+check_untyped_defs = true
+no_implicit_reexport = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E", "W",
+    "F",
+    "I",
+    "UP",
+    "B",
+    "SIM",
+    "TCH",
+    "ANN",
+    "RUF",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+strict_markers = true
