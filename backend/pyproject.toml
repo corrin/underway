@@ -1,42 +1,42 @@
-[build-system]
-requires = ["setuptools>=68.0"]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "aligned"
 version = "0.1.0"
-requires-python = ">=3.10"
-dependencies = [
-    "fastapi>=0.100",
-    "fastrest[sqlalchemy]",
-    "uvicorn[standard]",
-    "sqlalchemy[asyncio]>=2.0",
-    "aiomysql",
-    "aiosqlite",
-    "pydantic>=2.0",
-    "pydantic-settings",
-    "python-dotenv",
-    "pyjwt[crypto]",
-    "httpx",
-    "litellm",
-    "todoist-api-python",
-    "O365",
-    "msal",
-    "google-api-python-client",
-    "google-auth-oauthlib",
-    "alembic",
-]
+description = "Intelligent task and calendar management"
+package-mode = false
 
-[project.optional-dependencies]
-dev = [
-    "pytest",
-    "pytest-asyncio",
-    "pytest-playwright",
-    "playwright",
-    "mypy",
-    "ruff",
-    "pre-commit",
-]
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = ">=0.100"
+fastrest = {version = "*", extras = ["sqlalchemy"]}
+uvicorn = {version = "*", extras = ["standard"]}
+sqlalchemy = {version = ">=2.0", extras = ["asyncio"]}
+aiomysql = "*"
+aiosqlite = "*"
+pydantic = ">=2.0"
+pydantic-settings = "*"
+python-dotenv = "*"
+pyjwt = {version = "*", extras = ["crypto"]}
+httpx = "*"
+litellm = "*"
+todoist-api-python = "*"
+O365 = "*"
+msal = "*"
+google-api-python-client = "*"
+google-auth-oauthlib = "*"
+alembic = "*"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+pytest-asyncio = "*"
+pytest-playwright = "*"
+playwright = "*"
+mypy = "*"
+ruff = "*"
+pre-commit = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
 strict = true
