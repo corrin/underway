@@ -100,15 +100,17 @@ class TestGetTasks:
         assert len(result["tasks"]) == 1
         assert result["tasks"][0]["title"] == "Active"
 
-    async def test_filters_by_list_type(self, db_session: AsyncSession) -> None:
+    async def test_filters_by_priority(self, db_session: AsyncSession) -> None:
         user = await _make_user(db_session, "gettasks3@test.com")
-        await _make_task(db_session, user.id, title="Prio", list_type="prioritized")
-        await _make_task(db_session, user.id, title="Unprio", list_type="unprioritized")
+        t1 = await _make_task(db_session, user.id, title="High")
+        t1.priority = 3
+        t2 = await _make_task(db_session, user.id, title="Low")
+        t2.priority = 1
+        await db_session.flush()
 
-        result = await execute_tool("get_tasks", {"list_type": "prioritized"}, user.id, db_session)
-        assert result["success"] is True
+        result = await execute_tool("get_tasks", {"priority": 3}, user.id, db_session)
         assert len(result["tasks"]) == 1
-        assert result["tasks"][0]["title"] == "Prio"
+        assert result["tasks"][0]["title"] == "High"
 
     async def test_user_scoping(self, db_session: AsyncSession) -> None:
         user1 = await _make_user(db_session, "scope1@test.com")
@@ -164,23 +166,22 @@ class TestCreateTask:
         assert result["success"] is True
         assert result["task"]["title"] == "New task"
         assert result["task"]["status"] == "active"
-        assert result["task"]["list_type"] == "unprioritized"
 
         # Verify in DB
         row = await db_session.execute(select(Task).where(Task.user_id == user.id))
         assert row.scalar_one().title == "New task"
 
-    async def test_creates_task_with_list_type(self, db_session: AsyncSession) -> None:
+    async def test_creates_task_with_priority(self, db_session: AsyncSession) -> None:
         user = await _make_user(db_session, "create2@test.com")
 
         result = await execute_tool(
             "create_task",
-            {"title": "Prio task", "list_type": "prioritized"},
+            {"title": "Prio task", "priority": 3},
             user.id,
             db_session,
         )
         assert result["success"] is True
-        assert result["task"]["list_type"] == "prioritized"
+        assert result["task"]["priority"] == 3
 
 
 class TestUpdateTask:
@@ -190,13 +191,13 @@ class TestUpdateTask:
 
         result = await execute_tool(
             "update_task",
-            {"task_id": str(task.id), "title": "New title", "list_type": "prioritized"},
+            {"task_id": str(task.id), "title": "New title", "priority": 2},
             user.id,
             db_session,
         )
         assert result["success"] is True
         assert result["task"]["title"] == "New title"
-        assert result["task"]["list_type"] == "prioritized"
+        assert result["task"]["priority"] == 2
 
     async def test_rejects_other_user_task(self, db_session: AsyncSession) -> None:
         owner = await _make_user(db_session, "upd-owner@test.com")
@@ -217,15 +218,15 @@ class TestGetCalendar:
         user = await _make_user(db_session, "calendar@test.com")
 
         result = await execute_tool("get_calendar", {}, user.id, db_session)
-        assert result["success"] is True
         assert result["events"] == []
+        assert result["message"] == "Calendar not connected yet."
 
     async def test_with_days_ahead(self, db_session: AsyncSession) -> None:
         user = await _make_user(db_session, "calendar2@test.com")
 
         result = await execute_tool("get_calendar", {"days_ahead": 14}, user.id, db_session)
-        assert result["success"] is True
         assert result["events"] == []
+        assert "message" in result
 
 
 class TestExecuteToolDispatcher:

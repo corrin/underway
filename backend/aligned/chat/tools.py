@@ -21,17 +21,19 @@ TOOL_DEFINITIONS: list[Any] = [
         "type": "function",
         "function": {
             "name": "get_tasks",
-            "description": "Retrieve the user's tasks, optionally filtered by status or list_type.",
+            "description": "List the user's tasks, optionally filtered by status or priority.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "status": {
                         "type": "string",
-                        "description": "Filter by task status (e.g. 'active', 'completed').",
+                        "enum": ["active", "completed"],
+                        "description": "Filter tasks by status.",
                     },
-                    "list_type": {
-                        "type": "string",
-                        "description": "Filter by list type (e.g. 'prioritized', 'unprioritized').",
+                    "priority": {
+                        "type": "integer",
+                        "enum": [1, 2, 3, 4],
+                        "description": "Filter tasks by priority (1=low, 2=medium, 3=high, 4=urgent).",
                     },
                 },
                 "required": [],
@@ -59,21 +61,22 @@ TOOL_DEFINITIONS: list[Any] = [
         "type": "function",
         "function": {
             "name": "create_task",
-            "description": "Create a new task for the user.",
+            "description": "Create a new task.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "title": {
                         "type": "string",
-                        "description": "The title of the new task.",
+                        "description": "The title of the task.",
                     },
                     "description": {
                         "type": "string",
-                        "description": "Optional description for the task.",
+                        "description": "Optional description of the task.",
                     },
-                    "list_type": {
-                        "type": "string",
-                        "description": "Which list to place the task in (default: 'unprioritized').",
+                    "priority": {
+                        "type": "integer",
+                        "enum": [1, 2, 3, 4],
+                        "description": "Priority level (1=low, 2=medium, 3=high, 4=urgent).",
                     },
                 },
                 "required": ["title"],
@@ -100,13 +103,15 @@ TOOL_DEFINITIONS: list[Any] = [
                         "type": "string",
                         "description": "New description for the task.",
                     },
+                    "priority": {
+                        "type": "integer",
+                        "enum": [1, 2, 3, 4],
+                        "description": "New priority (1=low, 2=medium, 3=high, 4=urgent).",
+                    },
                     "status": {
                         "type": "string",
+                        "enum": ["active", "completed"],
                         "description": "New status for the task.",
-                    },
-                    "list_type": {
-                        "type": "string",
-                        "description": "New list type for the task.",
                     },
                 },
                 "required": ["task_id"],
@@ -152,9 +157,9 @@ async def _handle_get_tasks(
     if status is not None:
         stmt = stmt.where(Task.status == status)
 
-    list_type = arguments.get("list_type")
-    if list_type is not None:
-        stmt = stmt.where(Task.list_type == list_type)
+    priority = arguments.get("priority")
+    if priority is not None:
+        stmt = stmt.where(Task.priority == priority)
 
     stmt = stmt.order_by(Task.position)
     result = await session.execute(stmt)
@@ -192,8 +197,9 @@ async def _handle_create_task(
         provider_task_id=str(uuid.uuid4()),
         title=arguments["title"],
         description=arguments.get("description"),
+        priority=arguments.get("priority"),
         status="active",
-        list_type=arguments.get("list_type", "unprioritized"),
+        list_type="unprioritized",
         position=0,
         content_hash="",
     )
@@ -214,7 +220,7 @@ async def _handle_update_task(
     if task is None:
         return {"error": "Task not found or access denied"}
 
-    updatable = ("title", "description", "status", "list_type")
+    updatable = ("title", "description", "priority", "status")
     for field in updatable:
         if field in arguments:
             setattr(task, field, arguments[field])
@@ -230,7 +236,7 @@ async def _handle_get_calendar(
 ) -> dict[str, Any]:
     """Stub: return empty events list. Calendar integration deferred."""
     _ = arguments, user_id, session  # unused for now
-    return {"success": True, "events": []}
+    return {"events": [], "message": "Calendar not connected yet."}
 
 
 # ---------------------------------------------------------------------------
