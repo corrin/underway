@@ -754,7 +754,7 @@ optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = []
-develop = true
+develop = false
 
 [package.dependencies]
 fastapi = ">=0.100"
@@ -767,8 +767,10 @@ mcp = ["mcp (>=1.0)"]
 sqlalchemy = ["sqlalchemy[asyncio] (>=2.0)"]
 
 [package.source]
-type = "directory"
-url = "../../../../fastrest"
+type = "git"
+url = "https://github.com/corrin/fastrest.git"
+reference = "main"
+resolved_reference = "e34cac44ce2006d6e411862d250f48e6ded9a583"
 
 [[package]]
 name = "fastuuid"
@@ -4685,4 +4687,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "b92f9a5f53a794086c210ccd90521b8dde1b803bb581dbdd0d762fd3d0367183"
+content-hash = "2e83ea5a802d130ab26d585366c51fc8c16e0b064a6319ef86ade248fb1ae12f"

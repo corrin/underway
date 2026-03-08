@@ -22,7 +22,8 @@ msal = "*"
 google-api-python-client = "*"
 google-auth-oauthlib = "*"
 alembic = "*"
-fastrest = {path = "/home/corrin/src/fastrest", develop = true}
+# TODO: replace with fastrest = "*" once https://github.com/hoaxnerd/fastrest.git merges py.typed fixes
+fastrest = {git = "https://github.com/corrin/fastrest.git", branch = "main"}
 msgraph-sdk = "^1.55.0"
 
 [tool.poetry.group.dev.dependencies]
