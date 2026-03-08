@@ -1,0 +1,52 @@
+name: Deploy UAT (PythonAnywhere)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: uat
+    steps:
+      - name: Deploy to PythonAnywhere
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PA_SSH_HOST }}
+          username: ${{ secrets.PA_SSH_USER }}
+          key: ${{ secrets.PA_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd ~/aligned
+            git fetch origin main
+            git checkout main
+            git pull origin main
+
+            cd backend
+            poetry install --no-interaction --no-ansi
+            poetry run alembic upgrade head
+
+            cd ../frontend
+            npm ci
+            npm run build
+
+      - name: Reload web app
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PA_SSH_HOST }}
+          username: ${{ secrets.PA_SSH_USER }}
+          key: ${{ secrets.PA_SSH_KEY }}
+          script: |
+            # PythonAnywhere API to reload the web app
+            curl -s -X POST \
+              "https://www.pythonanywhere.com/api/v0/user/${{ secrets.PA_SSH_USER }}/webapps/${{ secrets.PA_DOMAIN }}/reload/" \
+              -H "Authorization: Token ${{ secrets.PA_API_TOKEN }}"
+
+      - name: Health check
+        run: |
+          sleep 10
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${{ secrets.PA_DOMAIN }}/")
+          if [ "$STATUS" -ne 200 ]; then
+            echo "Health check failed with status $STATUS"
+            exit 1
+          fi
+          echo "Health check passed (HTTP $STATUS)"
