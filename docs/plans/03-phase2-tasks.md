@@ -21,6 +21,46 @@ Port the full task management system: CRUD API, provider sync, drag-and-drop ord
 
 ## Steps
 
+### 2.0 Test Auth Bypass for Playwright
+
+Add a dev/test-only login endpoint that creates a valid session without going through Google OAuth. Google actively blocks automated login, so this is the standard pattern for E2E testing with OAuth providers.
+
+```python
+# aligned/viewsets/auth.py — only registered when TESTING/DEBUG
+
+if settings.TESTING:
+    @router.post("/api/auth/test-login")
+    async def test_login(request):
+        """Bypass Google OAuth for Playwright tests. Only exists in test env."""
+        # 1. Accept an email directly (no Google token verification)
+        # 2. Find or create User by email
+        # 3. Return JWT access token (same as real login)
+```
+
+Key requirements:
+- **Route must not exist in production** — conditionally register based on `settings.TESTING` so it's not just guarded but completely absent
+- Returns a real JWT so all subsequent API calls work identically to a real login
+- Playwright tests call this endpoint in `beforeEach` to get a token, then set it in the browser context
+- Add a Playwright auth fixture that handles this, reusable across all E2E tests:
+
+```typescript
+// e2e/fixtures/auth.ts
+import { test as base } from '@playwright/test'
+
+export const test = base.extend({
+  authenticatedPage: async ({ page }, use) => {
+    const res = await page.request.post('/api/auth/test-login', {
+      data: { email: 'test@example.com' }
+    })
+    const { token } = await res.json()
+    await page.evaluate(t => localStorage.setItem('token', t), token)
+    await use(page)
+  },
+})
+```
+
+This unblocks all E2E tests in Phase 2+ that require an authenticated user.
+
 ### 2.1 Task Serializers
 
 ```python
