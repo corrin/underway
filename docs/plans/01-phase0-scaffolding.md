@@ -393,4 +393,4 @@ This validates the full stack is wired together before any features are ported.
 - [ ] CI runs mypy, ruff, pytest (backend) and vue-tsc, lint (frontend)
 - [ ] Branch protection requires CI to pass before merging
 
-**Ongoing rule:** No phase is complete unless all quality gates still pass. If a third-party library forces a `# type: ignore`, it must be documented with a comment explaining why and tracked as tech debt to resolve.
+**Ongoing rule:** No phase is complete unless all quality gates still pass. If a third-party library forces a `# type: ignore`, it must be documented with a comment explaining why and tracked as tech debt to resolve. Usually we write our own monkeypatch.
