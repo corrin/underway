@@ -1,11 +1,35 @@
 """FastAPI application factory."""
 
-from fastapi import FastAPI
+from collections.abc import Awaitable, Callable
 
+from fastapi import FastAPI, Request, Response
+from fastrest.permissions import IsAuthenticated
+from fastrest.routers import DefaultRouter
+from fastrest.settings import configure
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from aligned.auth.jwt import create_token_auth
 from aligned.config import Settings, get_settings
+from aligned.routes.auth import router as auth_router
+from aligned.routes.auth import test_router as auth_test_router
+from aligned.routes.settings import router as settings_router
+from aligned.viewsets.external_accounts import ExternalAccountViewSet
+
+_session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+async def _get_session_factory(settings: Settings) -> async_sessionmaker[AsyncSession]:
+    global _session_factory
+    if _session_factory is None:
+        engine = create_async_engine(settings.database_url, echo=False)
+        _session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    return _session_factory
+
+
+def create_app(
+    settings: Settings | None = None,
+    session_factory: async_sessionmaker[AsyncSession] | None = None,
+) -> FastAPI:
     """Create and configure the FastAPI application."""
     if settings is None:
         settings = get_settings()
@@ -15,6 +39,43 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         description="Intelligent task and calendar management",
         version="0.1.0",
     )
+
+    # FastREST configuration: JWT auth + IsAuthenticated by default
+    token_auth = create_token_auth(settings.jwt_secret_key)
+    configure(
+        app,
+        {
+            "DEFAULT_AUTHENTICATION_CLASSES": [token_auth],
+            "DEFAULT_PERMISSION_CLASSES": [IsAuthenticated],
+        },
+    )
+
+    @app.middleware("http")
+    async def db_session_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        """Inject an async DB session into request.state for routes and viewsets."""
+        factory = session_factory or await _get_session_factory(settings)
+        async with factory() as session:
+            request.state.db_session = session
+            try:
+                response = await call_next(request)
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+        return response
+
+    # Plain FastAPI routes
+    app.include_router(auth_router)
+    app.include_router(settings_router)
+
+    # Test-only routes — completely absent in production
+    if settings.testing:
+        app.include_router(auth_test_router)
+
+    # FastREST viewset routes
+    rest_router = DefaultRouter()
+    rest_router.register("external-accounts", ExternalAccountViewSet, basename="external-account")
+    app.include_router(rest_router.urls, prefix="/api")
 
     @app.get("/api/health")
     async def health() -> dict[str, str]:

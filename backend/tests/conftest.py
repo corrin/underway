@@ -1,5 +1,6 @@
 """Shared test fixtures."""
 
+import os
 from collections.abc import AsyncGenerator
 
 import pytest
@@ -7,42 +8,62 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from aligned.app import create_app
-from aligned.config import Settings
+from aligned.config import Settings, get_settings
 from aligned.models import Base
-from aligned.models.base import get_session
+
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "mysql+aiomysql://aligned:aligned-dev-pass@localhost:3306/aligned_test",
+)
 
 
 @pytest.fixture
 def test_settings() -> Settings:
-    """Settings for testing — uses in-memory SQLite."""
+    """Settings for testing — uses MariaDB test database."""
     return Settings(
-        database_url="sqlite+aiosqlite:///:memory:",
-        jwt_secret_key="test-secret",
+        database_url=TEST_DATABASE_URL,
+        jwt_secret_key="test-secret-key-at-least-32-chars!",
     )
 
 
 @pytest.fixture
-async def db_session(test_settings: Settings) -> AsyncGenerator[AsyncSession, None]:
-    """Create a fresh in-memory database and yield a session."""
-    engine = create_async_engine(test_settings.database_url)
+async def db_engine() -> AsyncGenerator[object, None]:
+    """Shared engine: create tables before tests, drop after."""
+    engine = create_async_engine(TEST_DATABASE_URL)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with session_factory() as session:
-        yield session
+    yield engine
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
 @pytest.fixture
-async def client(test_settings: Settings, db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """Async HTTP client wired to the test app."""
-    app = create_app(settings=test_settings)
+async def db_session_factory(db_engine: object) -> async_sessionmaker[AsyncSession]:
+    """Session factory bound to the shared test engine."""
+    from sqlalchemy.ext.asyncio import AsyncEngine
 
-    # Override the session dependency
-    async def _override_session() -> AsyncGenerator[AsyncSession, None]:
-        yield db_session
+    assert isinstance(db_engine, AsyncEngine)
+    return async_sessionmaker(db_engine, expire_on_commit=False)
 
-    app.dependency_overrides[get_session] = _override_session
+
+@pytest.fixture
+async def db_session(db_session_factory: async_sessionmaker[AsyncSession]) -> AsyncGenerator[AsyncSession, None]:
+    """Yield a session for direct DB access in tests."""
+    async with db_session_factory() as session:
+        yield session
+
+
+@pytest.fixture
+async def client(
+    test_settings: Settings,
+    db_session_factory: async_sessionmaker[AsyncSession],
+) -> AsyncGenerator[AsyncClient, None]:
+    """Async HTTP client wired to the test app with shared session factory."""
+    app = create_app(settings=test_settings, session_factory=db_session_factory)
+
+    # Override get_settings so Depends(get_settings) returns test_settings
+    app.dependency_overrides[get_settings] = lambda: test_settings
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

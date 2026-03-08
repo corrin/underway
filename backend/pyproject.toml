@@ -11,7 +11,6 @@ fastrest = {version = "*", extras = ["sqlalchemy"]}
 uvicorn = {version = "*", extras = ["standard"]}
 sqlalchemy = {version = ">=2.0", extras = ["asyncio"]}
 aiomysql = "*"
-aiosqlite = "*"
 pydantic = ">=2.0"
 pydantic-settings = "*"
 python-dotenv = "*"
@@ -47,6 +46,7 @@ disallow_untyped_defs = true
 disallow_any_generics = true
 check_untyped_defs = true
 no_implicit_reexport = true
+mypy_path = "stubs"
 
 [tool.ruff]
 line-length = 120
@@ -66,8 +66,17 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# Test code doesn't need type annotations — clarity over ceremony
 "tests/**" = ["ANN"]
+# Alembic auto-generates migration code without annotations
 "migrations/**" = ["ANN"]
+# FastAPI's Depends() is designed to be called in parameter defaults (B008 is a false positive)
+"aligned/routes/**" = ["B008"]
+"aligned/auth/dependencies.py" = ["B008"]
+# FastREST serializer Meta classes use mutable class attributes by design
+"aligned/serializers/**" = ["RUF012"]
+# FastREST viewset overrides use Any for compatibility with untyped base class kwargs
+"aligned/viewsets/**" = ["ANN401"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
