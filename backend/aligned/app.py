@@ -9,6 +9,7 @@ from fastrest.settings import configure
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from aligned.auth.jwt import create_token_auth
+from aligned.chat.streaming import router as chat_router
 from aligned.config import Settings, get_settings
 from aligned.routes.auth import router as auth_router
 from aligned.routes.auth import test_router as auth_test_router
@@ -58,6 +59,7 @@ def create_app(
     async def db_session_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         """Inject an async DB session into request.state for routes and viewsets."""
         factory = session_factory or await _get_session_factory(settings)
+        request.state.session_factory = factory
         async with factory() as session:
             request.state.db_session = session
             try:
@@ -70,6 +72,7 @@ def create_app(
 
     # Plain FastAPI routes
     app.include_router(auth_router)
+    app.include_router(chat_router)
     app.include_router(settings_router)
     app.include_router(todoist_auth_router)
 
