@@ -1,9 +1,11 @@
 """Tests for chat tool definitions and handlers."""
 
+from __future__ import annotations
+
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from aligned.chat.tools import (
     MUTATING_TOOLS,
@@ -12,6 +14,9 @@ from aligned.chat.tools import (
 )
 from aligned.models.task import Task
 from aligned.models.user import User
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 # ---------------------------------------------------------------------------
 # Tool definition tests
@@ -58,6 +63,7 @@ async def _make_task(
     status: str = "active",
     list_type: str = "unprioritized",
     position: int = 0,
+    priority: int | None = None,
 ) -> Task:
     task = Task(
         id=uuid.uuid4(),
@@ -68,6 +74,7 @@ async def _make_task(
         status=status,
         list_type=list_type,
         position=position,
+        priority=priority,
         content_hash="abc",
     )
     session.add(task)
@@ -102,11 +109,8 @@ class TestGetTasks:
 
     async def test_filters_by_priority(self, db_session: AsyncSession) -> None:
         user = await _make_user(db_session, "gettasks3@test.com")
-        t1 = await _make_task(db_session, user.id, title="High")
-        t1.priority = 3
-        t2 = await _make_task(db_session, user.id, title="Low")
-        t2.priority = 1
-        await db_session.flush()
+        await _make_task(db_session, user.id, title="High", priority=3)
+        await _make_task(db_session, user.id, title="Low", priority=1)
 
         result = await execute_tool("get_tasks", {"priority": 3}, user.id, db_session)
         assert len(result["tasks"]) == 1
@@ -151,6 +155,13 @@ class TestCompleteTask:
 
         result = await execute_tool("complete_task", {"task_id": fake_id}, user.id, db_session)
         assert "error" in result
+
+    async def test_rejects_invalid_uuid(self, db_session: AsyncSession) -> None:
+        user = await _make_user(db_session, "complete4@test.com")
+
+        result = await execute_tool("complete_task", {"task_id": "not-a-uuid"}, user.id, db_session)
+        assert result["success"] is False
+        assert "Invalid task ID" in result["error"]
 
 
 class TestCreateTask:
@@ -211,6 +222,18 @@ class TestUpdateTask:
             db_session,
         )
         assert "error" in result
+
+    async def test_rejects_invalid_uuid(self, db_session: AsyncSession) -> None:
+        user = await _make_user(db_session, "update-invalid@test.com")
+
+        result = await execute_tool(
+            "update_task",
+            {"task_id": "not-a-uuid", "title": "Nope"},
+            user.id,
+            db_session,
+        )
+        assert result["success"] is False
+        assert "Invalid task ID" in result["error"]
 
 
 class TestGetCalendar:

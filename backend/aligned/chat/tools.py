@@ -10,13 +10,17 @@ from sqlalchemy import select
 from aligned.models.task import Task
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from sqlalchemy.ext.asyncio import AsyncSession
+
+    _ToolHandler = Callable[[dict[str, Any], uuid.UUID, AsyncSession], Awaitable[dict[str, Any]]]
 
 # ---------------------------------------------------------------------------
 # Tool definitions (OpenAI function-calling format)
 # ---------------------------------------------------------------------------
 
-TOOL_DEFINITIONS: list[Any] = [
+TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
@@ -174,7 +178,11 @@ async def _handle_complete_task(
 ) -> dict[str, Any]:
     """Mark a task as completed, only if it belongs to the user."""
     task_id = arguments["task_id"]
-    result = await session.execute(select(Task).where(Task.id == uuid.UUID(task_id), Task.user_id == user_id))
+    try:
+        parsed_id = uuid.UUID(task_id)
+    except ValueError:
+        return {"success": False, "error": f"Invalid task ID: {task_id}"}
+    result = await session.execute(select(Task).where(Task.id == parsed_id, Task.user_id == user_id))
     task = result.scalar_one_or_none()
     if task is None:
         return {"error": "Task not found or access denied"}
@@ -215,7 +223,11 @@ async def _handle_update_task(
 ) -> dict[str, Any]:
     """Update fields on an existing task belonging to the user."""
     task_id = arguments["task_id"]
-    result = await session.execute(select(Task).where(Task.id == uuid.UUID(task_id), Task.user_id == user_id))
+    try:
+        parsed_id = uuid.UUID(task_id)
+    except ValueError:
+        return {"success": False, "error": f"Invalid task ID: {task_id}"}
+    result = await session.execute(select(Task).where(Task.id == parsed_id, Task.user_id == user_id))
     task = result.scalar_one_or_none()
     if task is None:
         return {"error": "Task not found or access denied"}
@@ -243,7 +255,7 @@ async def _handle_get_calendar(
 # Dispatcher
 # ---------------------------------------------------------------------------
 
-_TOOL_HANDLERS: dict[str, Any] = {
+_TOOL_HANDLERS: dict[str, _ToolHandler] = {
     "get_tasks": _handle_get_tasks,
     "complete_task": _handle_complete_task,
     "create_task": _handle_create_task,
