@@ -213,7 +213,7 @@ async def _prepare_and_stream(
                         yield _sse_event(
                             {
                                 "type": "tool_call",
-                                "tool": func_name,
+                                "name": func_name,
                                 "result": tool_result,
                             }
                         )
@@ -256,7 +256,7 @@ async def _prepare_and_stream(
                 await session.flush()
                 await session.commit()
 
-                yield _sse_event({"type": "done"})
+                yield _sse_event({"type": "done", "conversation_id": str(conv_id)})
                 break
         except Exception as exc:
             await session.rollback()

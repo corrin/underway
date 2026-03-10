@@ -113,6 +113,7 @@ class TestChatEndpoint:
 
         assert len(token_events) >= 1
         assert len(done_events) == 1
+        assert "conversation_id" in done_events[0]
 
     @pytest.mark.usefixtures("db_session")
     async def test_chat_creates_conversation(self, client: AsyncClient, db_session: AsyncSession) -> None:
