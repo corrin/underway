@@ -45,7 +45,6 @@ jobs:
         with:
           path: backend/.venv
           key: poetry-${{ runner.os }}-py3.12-${{ hashFiles('backend/poetry.lock') }}
-          restore-keys: poetry-${{ runner.os }}-
       - name: Install dependencies
         run: poetry install
       - name: mypy
