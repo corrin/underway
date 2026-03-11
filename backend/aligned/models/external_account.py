@@ -6,15 +6,14 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, Text, and_, or_, update
+from sqlalchemy import ForeignKey, String, Text, and_, or_, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from aligned.models.base import Base
 from aligned.models.types import MySQLUUID
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
     from aligned.models.user import User
 
 TASK_PROVIDER_MAP: dict[str, str] = {
@@ -68,7 +67,6 @@ class ExternalAccount(Base):
 
     @classmethod
     async def get_accounts_for_user(cls, session: AsyncSession, user_id: uuid.UUID) -> list[ExternalAccount]:
-        from sqlalchemy import select
 
         result = await session.execute(select(cls).where(cls.user_id == user_id))
         return list(result.scalars().all())
@@ -84,8 +82,6 @@ class ExternalAccount(Base):
     ) -> None:
         if account_type not in ("calendar", "tasks"):
             raise ValueError("account_type must be 'calendar' or 'tasks'")
-
-        from sqlalchemy import select
 
         result = await session.execute(
             select(cls).where(
@@ -112,8 +108,6 @@ class ExternalAccount(Base):
         if account_type not in ("calendar", "tasks"):
             raise ValueError("account_type must be 'calendar' or 'tasks'")
 
-        from sqlalchemy import select
-
         if account_type == "calendar":
             stmt = select(cls).where(cls.user_id == user_id, cls.is_primary_calendar.is_(True))
         else:
@@ -124,7 +118,6 @@ class ExternalAccount(Base):
 
     @classmethod
     async def get_task_accounts_for_user(cls, session: AsyncSession, user_id: uuid.UUID) -> list[ExternalAccount]:
-        from sqlalchemy import select
 
         stmt = (
             select(cls)
@@ -151,7 +144,6 @@ class ExternalAccount(Base):
         task_user_email: str,
     ) -> ExternalAccount | None:
         """Get a specific task account by provider name and email."""
-        from sqlalchemy import select
 
         # Map task provider name to DB provider name
         db_provider = TASK_PROVIDER_MAP.get(provider_name, provider_name)
@@ -174,7 +166,6 @@ class ExternalAccount(Base):
         user_id: uuid.UUID,
     ) -> ExternalAccount | None:
         """Get an account by email, provider, and user."""
-        from sqlalchemy import select
 
         result = await session.execute(
             select(cls).where(

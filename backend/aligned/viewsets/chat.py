@@ -3,19 +3,17 @@
 from __future__ import annotations
 
 import uuid as _uuid
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 from fastrest.decorators import action
 from fastrest.exceptions import NotFound
+from fastrest.request import Request
 from fastrest.viewsets import ModelViewSet
 from sqlalchemy import select
 
 from aligned.models.conversation import Conversation
 from aligned.serializers.chat import ChatMessageSerializer, ConversationSerializer
 from aligned.viewsets.base import SessionMixin
-
-if TYPE_CHECKING:
-    from fastrest.request import Request
 
 
 class ConversationViewSet(SessionMixin, ModelViewSet):

@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
-from typing import TYPE_CHECKING, Annotated, Any
+from collections.abc import AsyncGenerator
+from typing import Annotated, Any
 
 import litellm
-
-if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -22,6 +21,8 @@ from aligned.chat.tools import MUTATING_TOOLS, TOOL_DEFINITIONS, execute_tool
 from aligned.models.conversation import ChatMessage, Conversation
 from aligned.models.task import Task
 from aligned.models.user import User
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
@@ -80,14 +81,11 @@ async def _prepare_and_stream(
     """
     async with session_factory() as session:
         try:
-            # Load user
+            # Load user (already validated by chat endpoint)
             result = await session.execute(select(User).where(User.id == user_id))
             user = result.scalar_one_or_none()
             if user is None:
                 yield _sse_event({"type": "error", "message": "User not found"})
-                return
-            if not user.ai_api_key:
-                yield _sse_event({"type": "error", "message": "AI API key not configured"})
                 return
 
             ai_api_key = user.ai_api_key
@@ -214,7 +212,19 @@ async def _prepare_and_stream(
                         try:
                             arguments = json.loads(tc["function"]["arguments"])
                         except json.JSONDecodeError:
-                            arguments = {}
+                            logger.exception(
+                                "Invalid JSON in tool call arguments for %s: %s",
+                                func_name,
+                                tc["function"]["arguments"],
+                            )
+                            yield _sse_event(
+                                {
+                                    "type": "error",
+                                    "message": f"Invalid arguments for tool {func_name}",
+                                }
+                            )
+                            await session.commit()
+                            return
 
                         tool_result = await execute_tool(func_name, arguments, user_id, session)
 
@@ -269,6 +279,7 @@ async def _prepare_and_stream(
                 yield _sse_event({"type": "done", "conversation_id": str(conv_id)})
                 break
         except Exception as exc:
+            logger.exception("Unhandled error in SSE stream for user %s", user_id)
             await session.rollback()
             yield _sse_event({"type": "error", "message": str(exc)})
 

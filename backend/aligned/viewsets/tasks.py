@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING
 
+from fastapi import HTTPException
 from fastrest.decorators import action
+from fastrest.request import Request
 from fastrest.viewsets import ModelViewSet
-
-if TYPE_CHECKING:
-    from fastrest.request import Request
 from sqlalchemy import select, update
 
 from aligned.models.task import Task
@@ -90,8 +88,6 @@ class TaskViewSet(SessionMixin, ModelViewSet):
         result = await session.execute(select(Task).where(Task.id == data["task_id"], Task.user_id == user.id))
         task = result.scalar_one_or_none()
         if task is None:
-            from fastapi import HTTPException
-
             raise HTTPException(status_code=404, detail="Task not found.")
 
         destination = data["destination"]
@@ -119,12 +115,13 @@ class TaskViewSet(SessionMixin, ModelViewSet):
         for item in data["order"]:
             task_id = item.get("id")
             position = item.get("position")
-            if task_id is not None and position is not None:
-                await session.execute(
-                    update(Task)
-                    .where(Task.id == uuid.UUID(str(task_id)), Task.user_id == user.id)
-                    .values(position=position)
-                )
+            if task_id is None or position is None:
+                continue
+            await session.execute(
+                update(Task)
+                .where(Task.id == uuid.UUID(str(task_id)), Task.user_id == user.id)
+                .values(position=position)
+            )
 
         await session.flush()
         return {"status": "ok"}
@@ -144,17 +141,17 @@ class TaskViewSet(SessionMixin, ModelViewSet):
         result = await session.execute(select(Task).where(Task.id == uuid.UUID(pk), Task.user_id == user.id))
         task = result.scalar_one_or_none()
         if task is None:
-            from fastapi import HTTPException
-
             raise HTTPException(status_code=404, detail="Task not found.")
 
         new_status = request.data.get("status")
-        if new_status:
-            task.status = new_status
-            if new_status == "completed":
-                task.list_type = "completed"
-            elif task.list_type == "completed":
-                task.list_type = "unprioritized"
+        if not new_status:
+            return {"status": "ok"}
+
+        task.status = new_status
+        if new_status == "completed":
+            task.list_type = "completed"
+        elif task.list_type == "completed":
+            task.list_type = "unprioritized"
 
         await session.flush()
         return {"status": "ok"}

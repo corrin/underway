@@ -4,16 +4,14 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING
+from uuid import UUID
+
+from msgraph.graph_service_client import GraphServiceClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from aligned.models.external_account import ExternalAccount
+from aligned.providers.o365_credentials import AccessTokenCredential
 from aligned.providers.task_provider import ProviderTask, TaskProvider
-
-if TYPE_CHECKING:
-    from uuid import UUID
-
-    from msgraph.graph_service_client import GraphServiceClient
-    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +28,6 @@ class OutlookTaskProvider(TaskProvider):
         self, session: AsyncSession, user_id: UUID, task_user_email: str
     ) -> GraphServiceClient | None:
         """Initialize and return a Microsoft Graph client."""
-        from msgraph.graph_service_client import GraphServiceClient as _GraphServiceClient
-
         account = await ExternalAccount.get_by_email_provider_and_user(
             session,
             external_email=task_user_email,
@@ -42,10 +38,8 @@ class OutlookTaskProvider(TaskProvider):
             logger.warning("No valid Outlook account for user_id=%s", user_id)
             return None
 
-        from aligned.providers.o365_credentials import AccessTokenCredential
-
         credential = AccessTokenCredential(account.token)
-        return _GraphServiceClient(credential)
+        return GraphServiceClient(credential)
 
     async def authenticate(self, session: AsyncSession, user_id: UUID, task_user_email: str) -> tuple[str, str] | None:
         """Check O365 credentials."""
@@ -60,16 +54,12 @@ class OutlookTaskProvider(TaskProvider):
         if account.needs_reauth:
             return self.provider_name, "/settings"
 
-        try:
-            client = await self._get_client(session, user_id, task_user_email)
-            if not client:
-                raise RuntimeError("Failed to initialize Graph client")
-            return None
-        except Exception:
-            logger.exception("O365 credentials invalid for user_id=%s", user_id)
+        client = await self._get_client(session, user_id, task_user_email)
+        if not client:
             account.needs_reauth = True
             await session.flush()
             return self.provider_name, "/settings"
+        return None
 
     async def get_tasks(self, session: AsyncSession, user_id: UUID, task_user_email: str) -> list[ProviderTask]:
         """Get all tasks from Outlook via Microsoft Graph API."""
@@ -85,22 +75,19 @@ class OutlookTaskProvider(TaskProvider):
         for task_list in task_lists:
             list_id = task_list.id or ""
             list_name = task_list.display_name or "Tasks"
-            try:
-                tasks_resp = await client.me.todo.lists.by_todo_task_list_id(list_id).tasks.get()
-                items = (tasks_resp.value if tasks_resp else None) or []
-                for item in items:
-                    task_dict: dict[str, object] = {
-                        "id": item.id,
-                        "subject": item.title,
-                        "importance": str(item.importance) if item.importance else "normal",
-                        "status": "completed" if item.status and str(item.status) == "completed" else "active",
-                        "dueDateTime": {"dateTime": item.due_date_time.date_time} if item.due_date_time else None,
-                        "listId": list_id,
-                        "listName": list_name,
-                    }
-                    all_tasks.append(task_dict)
-            except Exception:
-                logger.warning("Error getting tasks from folder %s", list_id, exc_info=True)
+            tasks_resp = await client.me.todo.lists.by_todo_task_list_id(list_id).tasks.get()
+            items = (tasks_resp.value if tasks_resp else None) or []
+            for item in items:
+                task_dict: dict[str, object] = {
+                    "id": item.id,
+                    "subject": item.title,
+                    "importance": str(item.importance) if item.importance else "normal",
+                    "status": "completed" if item.status and str(item.status) == "completed" else "active",
+                    "dueDateTime": {"dateTime": item.due_date_time.date_time} if item.due_date_time else None,
+                    "listId": list_id,
+                    "listName": list_name,
+                }
+                all_tasks.append(task_dict)
 
         tasks: list[ProviderTask] = []
         for t in all_tasks:
@@ -109,13 +96,14 @@ class OutlookTaskProvider(TaskProvider):
 
             due_date = None
             due_dt = t.get("dueDateTime")
-            if due_dt and isinstance(due_dt, dict):
-                due_str = due_dt.get("dateTime")
-                if due_str:
-                    try:
-                        due_date = datetime.fromisoformat(str(due_str).replace("Z", "+00:00"))
-                    except ValueError:
-                        logger.warning("Could not parse Outlook due date: %s", due_str)
+            if not due_dt or not isinstance(due_dt, dict) or not due_dt.get("dateTime"):
+                pass
+            else:
+                due_str = due_dt["dateTime"]
+                try:
+                    due_date = datetime.fromisoformat(str(due_str).replace("Z", "+00:00"))
+                except ValueError:
+                    logger.exception("Could not parse Outlook due date: %s", due_str)
 
             priority_map = {"low": 1, "normal": 2, "high": 3, "urgent": 4}
             priority = priority_map.get(str(t.get("importance", "normal")), 2)

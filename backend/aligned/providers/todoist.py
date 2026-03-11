@@ -4,17 +4,15 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING
+from uuid import UUID
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from todoist_api_python.api import TodoistAPI
 
 from aligned.models.external_account import ExternalAccount
+from aligned.models.task import Task
 from aligned.providers.task_provider import ProviderTask, TaskProvider
-
-if TYPE_CHECKING:
-    from uuid import UUID
-
-    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -70,13 +68,9 @@ class TodoistProvider(TaskProvider):
 
         # Get projects for name mapping
         projects: dict[str, str] = {}
-        try:
-            for page in api.get_projects():
-                for p in page:
-                    projects[p.id] = p.name
-        except Exception:
-            logger.exception("Error getting Todoist projects for user_id=%s", user_id)
-            raise
+        for page in api.get_projects():
+            for p in page:
+                projects[p.id] = p.name
 
         tasks: list[ProviderTask] = []
 
@@ -88,13 +82,7 @@ class TodoistProvider(TaskProvider):
                 due_date = None
                 if t.due:
                     due_date_str = str(t.due.date)
-                    try:
-                        due_date = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
-                    except ValueError:
-                        try:
-                            due_date = datetime.strptime(due_date_str, "%Y-%m-%d")
-                        except ValueError:
-                            logger.warning("Could not parse Todoist due date: %s", due_date_str)
+                    due_date = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
 
                 tasks.append(
                     ProviderTask(
@@ -138,10 +126,6 @@ class TodoistProvider(TaskProvider):
         if not task_data:
             return True
 
-        from sqlalchemy import select
-
-        from aligned.models.task import Task
-
         result = await session.execute(select(Task).where(Task.id == task_id, Task.user_id == user_id))
         task = result.scalar_one_or_none()
         if not task:
@@ -176,10 +160,6 @@ class TodoistProvider(TaskProvider):
 
     async def update_task_status(self, session: AsyncSession, user_id: UUID, task_id: str, status: str) -> bool:
         """Update task completion status in Todoist."""
-        from sqlalchemy import select
-
-        from aligned.models.task import Task
-
         result = await session.execute(select(Task).where(Task.id == task_id, Task.user_id == user_id))
         task = result.scalar_one_or_none()
         if not task:

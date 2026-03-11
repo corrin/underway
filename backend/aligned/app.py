@@ -1,5 +1,6 @@
 """FastAPI application factory."""
 
+import logging
 from collections.abc import Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
@@ -18,6 +19,8 @@ from aligned.routes.todoist_auth import router as todoist_auth_router
 from aligned.viewsets.chat import ConversationViewSet
 from aligned.viewsets.external_accounts import ExternalAccountViewSet
 from aligned.viewsets.tasks import TaskViewSet
+
+logger = logging.getLogger(__name__)
 
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 
@@ -66,6 +69,7 @@ def create_app(
                 response = await call_next(request)
                 await session.commit()
             except Exception:
+                logger.exception("Request failed; rolling back DB session")
                 await session.rollback()
                 raise
         return response

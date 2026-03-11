@@ -3,18 +3,15 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, Any
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from aligned.models.task import Task
 
-if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
-
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    _ToolHandler = Callable[[dict[str, Any], uuid.UUID, AsyncSession], Awaitable[dict[str, Any]]]
+_ToolHandler = Callable[[dict[str, Any], uuid.UUID, AsyncSession], Awaitable[dict[str, Any]]]
 
 # ---------------------------------------------------------------------------
 # Tool definitions (OpenAI function-calling format)

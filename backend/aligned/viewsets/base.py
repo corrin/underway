@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from fastrest.generics import GenericAPIView
-
-if TYPE_CHECKING:
-    from fastrest.request import Request
+from fastrest.request import Request
 
 
 class SessionMixin(GenericAPIView):

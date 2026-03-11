@@ -6,18 +6,13 @@ import hashlib
 import json
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from uuid import UUID
 
 from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from aligned.models.task import Task
-
-if TYPE_CHECKING:
-    from uuid import UUID
-
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from aligned.providers.task_provider import ProviderTask
+from aligned.providers.task_provider import ProviderTask
 
 logger = logging.getLogger(__name__)
 
@@ -83,24 +78,7 @@ async def _create_or_update_task(
     )
     existing = result.scalar_one_or_none()
 
-    if existing:
-        if existing.content_hash == content_hash:
-            return False  # unchanged
-
-        existing.title = provider_task.title
-        existing.status = provider_task.status
-        existing.due_date = provider_task.due_date
-        existing.priority = provider_task.priority
-        existing.project_id = provider_task.project_id
-        existing.project_name = provider_task.project_name
-        existing.parent_id = provider_task.parent_id
-        existing.section_id = provider_task.section_id
-        existing.content_hash = content_hash
-        existing.last_synced = datetime.now(UTC)
-        if existing.task_user_email != task_user_email:
-            existing.task_user_email = task_user_email
-        return True
-    else:
+    if not existing:
         task = Task(
             user_id=user_id,
             task_user_email=task_user_email,
@@ -120,6 +98,22 @@ async def _create_or_update_task(
         )
         session.add(task)
         return True
+
+    if existing.content_hash == content_hash:
+        return False  # unchanged
+
+    existing.title = provider_task.title
+    existing.status = provider_task.status
+    existing.due_date = provider_task.due_date
+    existing.priority = provider_task.priority
+    existing.project_id = provider_task.project_id
+    existing.project_name = provider_task.project_name
+    existing.parent_id = provider_task.parent_id
+    existing.section_id = provider_task.section_id
+    existing.content_hash = content_hash
+    existing.last_synced = datetime.now(UTC)
+    existing.task_user_email = task_user_email
+    return True
 
 
 async def sync_task_deletions(

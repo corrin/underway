@@ -4,16 +4,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
 from aligned.models.base import Base
 from aligned.models.types import MySQLUUID
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class Task(Base):
@@ -85,8 +82,6 @@ class Task(Base):
     async def get_user_tasks_by_list(
         cls, session: AsyncSession, user_id: uuid.UUID
     ) -> tuple[list[Task], list[Task], list[Task]]:
-        from sqlalchemy import select
-
         prioritized_result = await session.execute(
             select(cls)
             .where(cls.user_id == user_id, cls.list_type == "prioritized", cls.status == "active")
