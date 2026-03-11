@@ -41,7 +41,7 @@ onMounted(() => {
 <template>
   <div class="login-page">
     <div class="login-card">
-      <h1>Aligned</h1>
+      <h1>Underway</h1>
       <p>Intelligent task and calendar management</p>
       <div id="g_id_signin" class="google-btn"></div>
     </div>

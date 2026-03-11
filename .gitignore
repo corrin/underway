@@ -5,3 +5,4 @@ backend/.pytest_cache/
 backend/.coverage
 backend/*.db
 .worktrees/
+.env

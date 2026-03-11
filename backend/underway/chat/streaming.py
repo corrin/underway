@@ -32,7 +32,7 @@ CurrentUser = Annotated[JWTUser, Depends(get_current_user)]
 MAX_TOOL_ROUNDS = 10
 
 SYSTEM_PROMPT = (
-    "You are Aligned, a task management assistant. You help users:\n"
+    "You are Underway, a task management assistant. You help users:\n"
     "- Break down complex tasks into smaller, actionable subtasks\n"
     "- Track progress by marking tasks complete\n"
     "- Prioritize and reorder their task list\n"

@@ -10,7 +10,7 @@ const authStore = useAuthStore()
     <header v-if="authStore.isAuthenticated()">
       <nav>
         <div class="nav-left">
-          <RouterLink to="/" class="brand">Aligned</RouterLink>
+          <RouterLink to="/" class="brand">Underway</RouterLink>
           <RouterLink to="/">Home</RouterLink>
           <RouterLink to="/tasks">Tasks</RouterLink>
         </div>

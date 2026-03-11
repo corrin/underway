@@ -42,7 +42,7 @@ def create_app(
         settings = get_settings()
 
     app = FastAPI(
-        title="Aligned",
+        title="Underway",
         description="Intelligent task and calendar management",
         version="0.1.0",
     )

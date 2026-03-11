@@ -4,4 +4,4 @@ tunnels:
   dev:
     addr: 5173
     proto: http
-    domain: aligned-lakeland.ngrok.io
+    domain: underway-lakeland.ngrok.io
