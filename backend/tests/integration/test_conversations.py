@@ -5,13 +5,13 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from aligned.auth.jwt import create_access_token
+from underway.auth.jwt import create_access_token
 
 if TYPE_CHECKING:
     from httpx import AsyncClient
     from sqlalchemy.ext.asyncio import AsyncSession
-from aligned.models.conversation import ChatMessage, Conversation
-from aligned.models.user import User
+from underway.models.conversation import ChatMessage, Conversation
+from underway.models.user import User
 
 SECRET = "test-secret-key-at-least-32-chars!"
 

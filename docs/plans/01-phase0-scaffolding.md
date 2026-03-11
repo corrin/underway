@@ -2,7 +2,7 @@
 
 ## Goal
 
-Set up the aligned repo with strict tooling guardrails so that every line of code written from Phase 1 onward is type-checked, linted, and tested. This phase is deliberately careful — it's cheaper to get the foundations right now than to retrofit them later.
+Set up the underway repo with strict tooling guardrails so that every line of code written from Phase 1 onward is type-checked, linted, and tested. This phase is deliberately careful — it's cheaper to get the foundations right now than to retrofit them later.
 
 ## Principles
 
@@ -19,7 +19,7 @@ Create `backend/pyproject.toml` with:
 
 ```toml
 [project]
-name = "aligned"
+name = "underway"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
@@ -54,19 +54,19 @@ dev = [
 ]
 ```
 
-Create minimal `backend/aligned/__init__.py` and `backend/aligned/app.py`:
+Create minimal `backend/underway/__init__.py` and `backend/underway/app.py`:
 
 ```python
 from fastapi import FastAPI
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Aligned")
+    app = FastAPI(title="Underway")
     return app
 ```
 
 ### 0.2 Database Setup
 
-Create `backend/aligned/models/__init__.py` with async SQLAlchemy engine setup:
+Create `backend/underway/models/__init__.py` with async SQLAlchemy engine setup:
 
 ```python
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -83,7 +83,7 @@ cd backend
 alembic init -t async migrations
 ```
 
-Configure `alembic.ini` and `env.py` to use `aligned.models.Base.metadata`.
+Configure `alembic.ini` and `env.py` to use `underway.models.Base.metadata`.
 
 ### 0.3 Frontend Setup
 
@@ -101,7 +101,7 @@ Configure Vite to proxy `/api` to `http://localhost:8000` in development.
 Create `backend/.env.example`:
 
 ```env
-DATABASE_URL=mysql+aiomysql://user:pass@localhost:3306/aligned
+DATABASE_URL=mysql+aiomysql://user:pass@localhost:3306/underway
 JWT_SECRET_KEY=change-me
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
@@ -111,7 +111,7 @@ O365_CLIENT_SECRET=...
 O365_REDIRECT_URI=...
 ```
 
-Create `backend/aligned/config.py` using pydantic-settings:
+Create `backend/underway/config.py` using pydantic-settings:
 
 ```python
 from pydantic_settings import BaseSettings
@@ -225,7 +225,7 @@ repos:
         types: [python]
       - id: mypy
         name: mypy
-        entry: mypy aligned
+        entry: mypy underway
         language: system
         types: [python]
         pass_filenames: false
@@ -267,7 +267,7 @@ jobs:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: test
-          MYSQL_DATABASE: aligned_test
+          MYSQL_DATABASE: underway_test
         ports:
           - 3306:3306
         options: >-
@@ -285,17 +285,17 @@ jobs:
         run: pip install -e ".[dev]"
       - name: mypy
         working-directory: backend
-        run: mypy aligned --strict
+        run: mypy underway --strict
       - name: ruff check
         working-directory: backend
-        run: ruff check aligned
+        run: ruff check underway
       - name: ruff format
         working-directory: backend
-        run: ruff format --check aligned
+        run: ruff format --check underway
       - name: pytest
         working-directory: backend
         env:
-          DATABASE_URL: mysql+aiomysql://root:test@localhost:3306/aligned_test
+          DATABASE_URL: mysql+aiomysql://root:test@localhost:3306/underway_test
           JWT_SECRET_KEY: test-secret
         run: pytest
 
@@ -353,8 +353,8 @@ CI runs on every push to main and every PR. Backend quality gates (mypy, ruff, p
 ### 0.8 Verify the Gate Works
 
 Before the smoke test, write a deliberately broken file and confirm:
-1. `mypy aligned` catches an untyped function — fails
-2. `ruff check aligned` catches a style violation — fails
+1. `mypy underway` catches an untyped function — fails
+2. `ruff check underway` catches a style violation — fails
 3. `git commit` is blocked by pre-commit hooks
 
 Delete the broken file. Now we know the guardrails work.
@@ -377,9 +377,9 @@ This validates the full stack is wired together before any features are ported.
 - [ ] Vite proxies `/api/*` to FastAPI backend
 
 **Quality gates — these must pass on every commit going forward:**
-- [ ] `mypy aligned --strict` passes with zero errors
-- [ ] `ruff check aligned` passes with zero violations
-- [ ] `ruff format --check aligned` passes
+- [ ] `mypy underway --strict` passes with zero errors
+- [ ] `ruff check underway` passes with zero violations
+- [ ] `ruff format --check underway` passes
 - [ ] `pre-commit run --all-files` passes
 - [ ] `cd frontend && npx vue-tsc --noEmit` passes (TypeScript strict)
 

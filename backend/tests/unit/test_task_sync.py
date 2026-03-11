@@ -5,10 +5,10 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aligned.models.task import Task
-from aligned.models.user import User
-from aligned.providers.task_provider import ProviderTask
-from aligned.services.task_sync import _compute_hash, sync_provider_tasks, sync_task_deletions
+from underway.models.task import Task
+from underway.models.user import User
+from underway.providers.task_provider import ProviderTask
+from underway.services.task_sync import _compute_hash, sync_provider_tasks, sync_task_deletions
 
 
 async def _create_user(session: AsyncSession, email: str = "sync@example.com") -> User:

@@ -8,11 +8,11 @@ Port the chat system with SSE streaming, LLM tool calling, and conversation mana
 
 | Original | New |
 |----------|-----|
-| `chat/chat_routes.py` | `aligned/viewsets/chat.py` + `aligned/chat/streaming.py` |
-| `chat/tools.py` | `aligned/chat/tools.py` |
+| `chat/chat_routes.py` | `underway/viewsets/chat.py` + `underway/chat/streaming.py` |
+| `chat/tools.py` | `underway/chat/tools.py` |
 | `chat/models.py` | (already ported in Phase 1) |
-| `ai/ai_manager.py` | `aligned/providers/ai_manager.py` |
-| `ai/openai_provider.py` | `aligned/providers/openai_provider.py` |
+| `ai/ai_manager.py` | `underway/providers/ai_manager.py` |
+| `ai/openai_provider.py` | `underway/providers/openai_provider.py` |
 | `templates/chat.html` | `frontend/src/views/ChatView.vue` |
 
 ## Steps
@@ -20,7 +20,7 @@ Port the chat system with SSE streaming, LLM tool calling, and conversation mana
 ### 3.1 Conversation Serializers
 
 ```python
-# aligned/serializers/chat.py
+# underway/serializers/chat.py
 
 class ConversationSerializer(ModelSerializer):
     class Meta:
@@ -64,7 +64,7 @@ class ConversationViewSet(ModelViewSet):
 The chat endpoint doesn't fit CRUD patterns — it's a stateful streaming endpoint. Implement as a direct FastAPI route:
 
 ```python
-# aligned/chat/streaming.py
+# underway/chat/streaming.py
 
 @router.post("/api/chat")
 async def chat(request: Request):
@@ -97,7 +97,7 @@ Key difference from Flask: use `litellm.acompletion()` (async) instead of `litel
 Port `chat/tools.py` with async support:
 
 ```python
-# aligned/chat/tools.py
+# underway/chat/tools.py
 
 # TOOL_DEFINITIONS stays the same (it's just a dict)
 

@@ -6,8 +6,8 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from aligned.config import get_settings
-from aligned.models import Base
+from underway.config import get_settings
+from underway.models import Base
 
 config = context.config
 if config.config_file_name is not None:

@@ -21,7 +21,7 @@ jobs:
           key: ${{ secrets.OC_SSH_KEY }}
           script: |
             set -euo pipefail
-            cd /opt/aligned
+            cd /opt/underway
             git fetch origin
             git checkout ${{ github.event.inputs.ref }}
             git pull origin ${{ github.event.inputs.ref }}
@@ -34,7 +34,7 @@ jobs:
             npm ci
             npm run build
 
-            sudo systemctl restart aligned
+            sudo systemctl restart underway
             sudo systemctl reload nginx
 
       - name: Health check

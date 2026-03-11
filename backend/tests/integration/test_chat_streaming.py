@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aligned.auth.jwt import create_access_token
-from aligned.models.conversation import Conversation
-from aligned.models.task import Task
-from aligned.models.user import User
+from underway.auth.jwt import create_access_token
+from underway.models.conversation import Conversation
+from underway.models.task import Task
+from underway.models.user import User
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -96,7 +96,7 @@ class TestChatEndpoint:
     async def test_chat_returns_sse_stream(self, client: AsyncClient, db_session: AsyncSession) -> None:
         user = await _create_user(db_session)
 
-        with patch("aligned.chat.streaming.litellm") as mock_litellm:
+        with patch("underway.chat.streaming.litellm") as mock_litellm:
             mock_litellm.acompletion = AsyncMock(return_value=_mock_chunks("Hello world"))
             response = await client.post(
                 "/api/chat",
@@ -119,7 +119,7 @@ class TestChatEndpoint:
     async def test_chat_creates_conversation(self, client: AsyncClient, db_session: AsyncSession) -> None:
         user = await _create_user(db_session)
 
-        with patch("aligned.chat.streaming.litellm") as mock_litellm:
+        with patch("underway.chat.streaming.litellm") as mock_litellm:
             mock_litellm.acompletion = AsyncMock(return_value=_mock_chunks("OK"))
             await client.post(
                 "/api/chat",
@@ -138,7 +138,7 @@ class TestChatEndpoint:
     async def test_chat_persists_messages(self, client: AsyncClient, db_session: AsyncSession) -> None:
         user = await _create_user(db_session)
 
-        with patch("aligned.chat.streaming.litellm") as mock_litellm:
+        with patch("underway.chat.streaming.litellm") as mock_litellm:
             mock_litellm.acompletion = AsyncMock(return_value=_mock_chunks("Reply"))
             await client.post(
                 "/api/chat",
@@ -148,7 +148,7 @@ class TestChatEndpoint:
 
         from sqlalchemy import select
 
-        from aligned.models.conversation import ChatMessage
+        from underway.models.conversation import ChatMessage
 
         result = await db_session.execute(select(ChatMessage).order_by(ChatMessage.sequence))
         msgs = list(result.scalars().all())
@@ -185,7 +185,7 @@ class TestChatEndpoint:
         db_session.add(conv)
         await db_session.commit()
 
-        with patch("aligned.chat.streaming.litellm") as mock_litellm:
+        with patch("underway.chat.streaming.litellm") as mock_litellm:
             mock_litellm.acompletion = AsyncMock(return_value=_mock_chunks("OK"))
             response = await client.post(
                 "/api/chat",
@@ -217,7 +217,7 @@ class TestToolCallingLoop:
                 return _mock_tool_call_chunks()
             return _mock_content_after_tool("Here are your tasks")
 
-        with patch("aligned.chat.streaming.litellm") as mock_litellm:
+        with patch("underway.chat.streaming.litellm") as mock_litellm:
             mock_litellm.acompletion = AsyncMock(side_effect=_side_effect)
             response = await client.post(
                 "/api/chat",

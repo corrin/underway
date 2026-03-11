@@ -5,11 +5,11 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aligned.models.conversation import ChatMessage, Conversation
-from aligned.models.external_account import ExternalAccount
-from aligned.models.task import Task
-from aligned.models.types import MySQLUUID
-from aligned.models.user import User
+from underway.models.conversation import ChatMessage, Conversation
+from underway.models.external_account import ExternalAccount
+from underway.models.task import Task
+from underway.models.types import MySQLUUID
+from underway.models.user import User
 
 
 class TestMySQLUUID:

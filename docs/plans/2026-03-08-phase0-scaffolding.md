@@ -1,15 +1,15 @@
 # Phase 0: Project Scaffolding — COMPLETED 2026-03-08
 
-**Goal:** Set up the aligned repo with backend (FastAPI/FastREST), frontend (Vue/TypeScript), strict type checking, testing, and CI.
+**Goal:** Set up the underway repo with backend (FastAPI/FastREST), frontend (Vue/TypeScript), strict type checking, testing, and CI.
 
 **Status:** All tasks complete. All quality gates passing.
 
 ## What was built
 
 ### Backend (`backend/`)
-- **Framework:** FastAPI with app factory pattern (`aligned/app.py`)
-- **Config:** pydantic-settings with `.env` support (`aligned/config.py`)
-- **Database:** Async SQLAlchemy + Alembic migrations (`aligned/models/`, `migrations/`)
+- **Framework:** FastAPI with app factory pattern (`underway/app.py`)
+- **Config:** pydantic-settings with `.env` support (`underway/config.py`)
+- **Database:** Async SQLAlchemy + Alembic migrations (`underway/models/`, `migrations/`)
 - **Dependencies:** Poetry with lockfile (`pyproject.toml`, `poetry.lock`)
 - **Quality:** mypy strict, ruff, pre-commit hooks
 - **Testing:** pytest with async fixtures, Playwright e2e (excluded from default run via `-m 'not e2e'`)
@@ -44,11 +44,11 @@
 cd backend && poetry install
 
 # Dev server (or use VS Code "Full Stack" launch)
-poetry run uvicorn aligned.app:create_app --factory --port 8000 --reload
+poetry run uvicorn underway.app:create_app --factory --port 8000 --reload
 
 # Quality gates
-poetry run mypy aligned --strict
-poetry run ruff check aligned
+poetry run mypy underway --strict
+poetry run ruff check underway
 poetry run pytest -v
 poetry run pytest -m e2e  # separate, needs servers
 

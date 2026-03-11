@@ -7,13 +7,13 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from aligned.app import create_app
-from aligned.config import Settings, get_settings
-from aligned.models import Base
+from underway.app import create_app
+from underway.config import Settings, get_settings
+from underway.models import Base
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    "mysql+aiomysql://aligned:aligned-dev-pass@localhost:3306/aligned_test",
+    "mysql+aiomysql://underway:underway-dev-pass@localhost:3306/underway_test",
 )
 
 

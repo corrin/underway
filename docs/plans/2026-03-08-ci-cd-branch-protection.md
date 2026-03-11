@@ -40,9 +40,9 @@ jobs:
         image: mariadb:11
         env:
           MARIADB_ROOT_PASSWORD: root
-          MARIADB_DATABASE: aligned_test
-          MARIADB_USER: aligned
-          MARIADB_PASSWORD: aligned-ci-pass
+          MARIADB_DATABASE: underway_test
+          MARIADB_USER: underway
+          MARIADB_PASSWORD: underway-ci-pass
         ports:
           - 3306:3306
         options: >-
@@ -69,15 +69,15 @@ jobs:
       - name: Install dependencies
         run: poetry install
       - name: mypy
-        run: poetry run mypy aligned --strict
+        run: poetry run mypy underway --strict
       - name: ruff check
-        run: poetry run ruff check aligned
+        run: poetry run ruff check underway
       - name: ruff format
-        run: poetry run ruff format --check aligned
+        run: poetry run ruff format --check underway
       - name: pytest
         run: poetry run pytest -v
         env:
-          TEST_DATABASE_URL: mysql+aiomysql://aligned:aligned-ci-pass@127.0.0.1:3306/aligned_test
+          TEST_DATABASE_URL: mysql+aiomysql://underway:underway-ci-pass@127.0.0.1:3306/underway_test
           JWT_SECRET_KEY: test-secret
 
   frontend:
@@ -142,7 +142,7 @@ jobs:
           key: ${{ secrets.PA_SSH_KEY }}
           script: |
             set -euo pipefail
-            cd ~/aligned
+            cd ~/underway
             git fetch origin main
             git checkout main
             git pull origin main
@@ -223,7 +223,7 @@ jobs:
           key: ${{ secrets.OC_SSH_KEY }}
           script: |
             set -euo pipefail
-            cd /opt/aligned
+            cd /opt/underway
             git fetch origin
             git checkout ${{ github.event.inputs.ref }}
             git pull origin ${{ github.event.inputs.ref }}
@@ -236,7 +236,7 @@ jobs:
             npm ci
             npm run build
 
-            sudo systemctl restart aligned
+            sudo systemctl restart underway
             sudo systemctl reload nginx
 
       - name: Health check
@@ -277,10 +277,10 @@ This task uses `gh api` to configure branch protection rules on `main`. This run
 
 ```bash
 # Create UAT environment
-gh api repos/corrin/aligned/environments/uat -X PUT
+gh api repos/corrin/underway/environments/uat -X PUT
 
 # Create production environment with required reviewers
-gh api repos/corrin/aligned/environments/production -X PUT \
+gh api repos/corrin/underway/environments/production -X PUT \
   --input - <<'EOF'
 {
   "reviewers": [],
@@ -297,7 +297,7 @@ Note: `reviewers` is empty for now (solo dev). Add reviewer IDs later if needed.
 **Step 2: Enable auto-delete head branches**
 
 ```bash
-gh repo edit corrin/aligned --delete-branch-on-merge
+gh repo edit corrin/underway --delete-branch-on-merge
 ```
 
 **Step 3: Create branch protection ruleset**
@@ -305,7 +305,7 @@ gh repo edit corrin/aligned --delete-branch-on-merge
 Using the newer rulesets API (more flexible than legacy branch protection):
 
 ```bash
-gh api repos/corrin/aligned/rulesets -X POST \
+gh api repos/corrin/underway/rulesets -X POST \
   --input - <<'EOF'
 {
   "name": "Protect main",
@@ -366,7 +366,7 @@ Note on signed commits: GitHub rulesets support `"required_signatures"` rule typ
 
 ```bash
 # Fallback: enable signed commits via legacy API if rulesets don't support it
-gh api repos/corrin/aligned/branches/main/protection/required_signatures \
+gh api repos/corrin/underway/branches/main/protection/required_signatures \
   -X POST \
   -H "Accept: application/vnd.github.zzzax-preview+json"
 ```
@@ -374,7 +374,7 @@ gh api repos/corrin/aligned/branches/main/protection/required_signatures \
 **Step 4: Verify protection is applied**
 
 ```bash
-gh api repos/corrin/aligned/rulesets --jq '.[].name'
+gh api repos/corrin/underway/rulesets --jq '.[].name'
 ```
 
 Expected: `Protect main`

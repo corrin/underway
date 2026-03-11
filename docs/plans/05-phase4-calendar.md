@@ -8,11 +8,11 @@ Port calendar providers (Google Calendar, O365), OAuth flows, and event manageme
 
 | Original | New |
 |----------|-----|
-| `meetings/calendar_provider.py` | `aligned/providers/calendar/base.py` |
-| `meetings/calendar_provider_factory.py` | `aligned/providers/calendar/factory.py` |
-| `meetings/google_calendar_provider.py` | `aligned/providers/calendar/google.py` |
-| `meetings/o365_calendar_provider.py` | `aligned/providers/calendar/o365.py` |
-| `meetings/meetings_routes.py` | `aligned/viewsets/calendar.py` + `aligned/viewsets/oauth.py` |
+| `meetings/calendar_provider.py` | `underway/providers/calendar/base.py` |
+| `meetings/calendar_provider_factory.py` | `underway/providers/calendar/factory.py` |
+| `meetings/google_calendar_provider.py` | `underway/providers/calendar/google.py` |
+| `meetings/o365_calendar_provider.py` | `underway/providers/calendar/o365.py` |
+| `meetings/meetings_routes.py` | `underway/viewsets/calendar.py` + `underway/viewsets/oauth.py` |
 | `templates/meetings.html` | `frontend/src/views/CalendarView.vue` |
 
 ## Steps
@@ -22,7 +22,7 @@ Port calendar providers (Google Calendar, O365), OAuth flows, and event manageme
 Port the provider pattern with async methods:
 
 ```python
-# aligned/providers/calendar/base.py
+# underway/providers/calendar/base.py
 
 class CalendarProvider(ABC):
     @abstractmethod
@@ -55,7 +55,7 @@ class CalendarProvider(ABC):
 Since calendar events come from external APIs (not our DB), use Pydantic models directly:
 
 ```python
-# aligned/providers/calendar/models.py
+# underway/providers/calendar/models.py
 
 class CalendarEvent(BaseModel):
     id: str
@@ -79,7 +79,7 @@ class CalendarEventCreate(BaseModel):
 OAuth callbacks are redirects from external providers — they don't fit viewset patterns:
 
 ```python
-# aligned/viewsets/oauth.py
+# underway/viewsets/oauth.py
 
 @router.get("/api/oauth/google/callback")
 async def google_oauth_callback(request: Request):
@@ -108,7 +108,7 @@ async def initiate_o365_oauth(request: Request):
 ### 4.4 Calendar ViewSet
 
 ```python
-# aligned/viewsets/calendar.py
+# underway/viewsets/calendar.py
 
 class CalendarViewSet(ViewSet):
     """Non-model viewset for calendar operations (events are external)."""

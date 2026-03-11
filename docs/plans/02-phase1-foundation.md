@@ -8,9 +8,9 @@
 
 ### Backend
 - **Models:** User, ExternalAccount, Task, Conversation, ChatMessage — all async SQLAlchemy 2.0 with `mapped_column`, `AsyncSession`
-- **Auth:** JWT authentication (`aligned/auth/jwt.py`), Google ID token verification (`aligned/auth/google.py`)
-- **Routes:** Google login, logout, /me (`aligned/routes/auth.py`), settings CRUD (`aligned/routes/settings.py`)
-- **ViewSets:** ExternalAccount read-only viewset (`aligned/viewsets/external_accounts.py`)
+- **Auth:** JWT authentication (`underway/auth/jwt.py`), Google ID token verification (`underway/auth/google.py`)
+- **Routes:** Google login, logout, /me (`underway/routes/auth.py`), settings CRUD (`underway/routes/settings.py`)
+- **ViewSets:** ExternalAccount read-only viewset (`underway/viewsets/external_accounts.py`)
 - **Serializers:** User settings, ExternalAccount — all with `ClassVar` annotations
 - **Dependencies:** `Annotated` type aliases for DI (`BearerCredentials`, `DbSession`, `CurrentSettings`)
 - **Test auth bypass:** `/api/auth/test-login` endpoint (only registered when `TESTING=true`) for Playwright E2E

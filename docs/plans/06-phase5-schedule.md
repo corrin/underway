@@ -8,9 +8,9 @@ Port the AI-driven schedule generation system that reads tasks + calendar, gener
 
 | Original | New |
 |----------|-----|
-| `schedule/schedule_routes.py` | `aligned/viewsets/schedule.py` |
-| `ai/schedule_generator.py` | `aligned/schedule/generator.py` |
-| `ai/ai_manager.py` | `aligned/providers/ai_manager.py` (already ported in Phase 3) |
+| `schedule/schedule_routes.py` | `underway/viewsets/schedule.py` |
+| `ai/schedule_generator.py` | `underway/schedule/generator.py` |
+| `ai/ai_manager.py` | `underway/providers/ai_manager.py` (already ported in Phase 3) |
 
 ## Steps
 
@@ -19,7 +19,7 @@ Port the AI-driven schedule generation system that reads tasks + calendar, gener
 Port `schedule_generator.py` as an async service:
 
 ```python
-# aligned/schedule/generator.py
+# underway/schedule/generator.py
 
 class ScheduleGenerator:
     """Generates a daily schedule using AI based on tasks and calendar events."""
@@ -57,7 +57,7 @@ class ScheduleGenerator:
 ### 5.2 Schedule Pydantic Models
 
 ```python
-# aligned/schedule/models.py
+# underway/schedule/models.py
 
 class TimeSlot(BaseModel):
     start: datetime
@@ -75,7 +75,7 @@ class ScheduleResult(BaseModel):
 ### 5.3 Schedule Routes
 
 ```python
-# aligned/viewsets/schedule.py
+# underway/viewsets/schedule.py
 
 @router.post("/api/schedule/generate")
 async def generate_schedule(request: Request):

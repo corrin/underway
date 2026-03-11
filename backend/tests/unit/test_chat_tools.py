@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 
-from aligned.chat.tools import (
+from underway.chat.tools import (
     MUTATING_TOOLS,
     TOOL_DEFINITIONS,
     execute_tool,
 )
-from aligned.models.task import Task
-from aligned.models.user import User
+from underway.models.task import Task
+from underway.models.user import User
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession

@@ -7,7 +7,7 @@ from unittest.mock import patch
 import jwt
 import pytest
 
-from aligned.auth.jwt import (
+from underway.auth.jwt import (
     TOKEN_EXPIRY_HOURS,
     JWTUser,
     create_access_token,
@@ -54,7 +54,7 @@ class TestVerifyAccessToken:
             verify_access_token(token, "wrong-secret")
 
     def test_expired_token_raises(self) -> None:
-        with patch("aligned.auth.jwt.datetime") as mock_dt:
+        with patch("underway.auth.jwt.datetime") as mock_dt:
             mock_dt.now.return_value = datetime.now(UTC) - timedelta(hours=48)
             mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
             token = create_access_token(USER_ID, EMAIL, SECRET)

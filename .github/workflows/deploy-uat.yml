@@ -16,7 +16,7 @@ jobs:
           key: ${{ secrets.PA_SSH_KEY }}
           script: |
             set -euo pipefail
-            cd ~/aligned
+            cd ~/underway
             git fetch origin main
             git checkout main
             git pull origin main

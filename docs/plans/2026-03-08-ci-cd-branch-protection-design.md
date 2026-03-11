@@ -53,7 +53,7 @@ Steps:
 4. `cd backend && poetry install --no-interaction`
 5. `alembic upgrade head`
 6. `cd ../frontend && npm ci && npm run build`
-7. `sudo systemctl restart aligned`
+7. `sudo systemctl restart underway`
 8. `sudo systemctl reload nginx`
 9. Health check (curl localhost, expect 200)
 
@@ -100,15 +100,15 @@ curl -sSL https://install.python-poetry.org | python3 -
 ### MariaDB
 ```bash
 sudo mysql_secure_installation
-sudo mysql -e "CREATE DATABASE aligned_prod CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-sudo mysql -e "CREATE USER 'aligned'@'localhost' IDENTIFIED BY '<password>';"
-sudo mysql -e "GRANT ALL PRIVILEGES ON aligned_prod.* TO 'aligned'@'localhost';"
+sudo mysql -e "CREATE DATABASE underway_prod CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+sudo mysql -e "CREATE USER 'underway'@'localhost' IDENTIFIED BY '<password>';"
+sudo mysql -e "GRANT ALL PRIVILEGES ON underway_prod.* TO 'underway'@'localhost';"
 ```
 
 ### Clone & configure
 ```bash
-git clone git@github.com:corrin/aligned.git /opt/aligned
-cd /opt/aligned/backend
+git clone git@github.com:corrin/underway.git /opt/underway
+cd /opt/underway/backend
 poetry install --no-interaction
 cp .env.example .env  # edit with production values
 alembic upgrade head
@@ -118,18 +118,18 @@ npm ci && npm run build
 
 ### Systemd unit
 ```ini
-# /etc/systemd/system/aligned.service
+# /etc/systemd/system/underway.service
 [Unit]
-Description=Aligned FastAPI App
+Description=Underway FastAPI App
 After=network.target mariadb.service
 
 [Service]
-User=aligned
-Group=aligned
-WorkingDirectory=/opt/aligned/backend
-Environment="PATH=/home/aligned/.local/bin:/usr/bin"
-EnvironmentFile=/opt/aligned/backend/.env
-ExecStart=/home/aligned/.local/bin/poetry run uvicorn aligned.app:app --host 127.0.0.1 --port 8000
+User=underway
+Group=underway
+WorkingDirectory=/opt/underway/backend
+Environment="PATH=/home/underway/.local/bin:/usr/bin"
+EnvironmentFile=/opt/underway/backend/.env
+ExecStart=/home/underway/.local/bin/poetry run uvicorn underway.app:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=5
 
@@ -139,20 +139,20 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable aligned
-sudo systemctl start aligned
+sudo systemctl enable underway
+sudo systemctl start underway
 ```
 
 ### Nginx
 ```nginx
-# /etc/nginx/sites-available/aligned
+# /etc/nginx/sites-available/underway
 server {
     listen 80;
     server_name your-domain.com;
 
     # Frontend static files
     location / {
-        root /opt/aligned/frontend/dist;
+        root /opt/underway/frontend/dist;
         try_files $uri $uri/ /index.html;
     }
 
@@ -176,7 +176,7 @@ server {
 ```
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/aligned /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/underway /etc/nginx/sites-enabled/
 sudo rm /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 ```
@@ -194,5 +194,5 @@ sudo certbot --nginx -d your-domain.com
 | `PA_SSH_USER` | deploy-uat | PythonAnywhere username |
 | `PA_SSH_KEY` | deploy-uat | SSH private key for PythonAnywhere |
 | `OC_SSH_HOST` | deploy-prod | Oracle Cloud VM public IP |
-| `OC_SSH_USER` | deploy-prod | SSH user on Oracle Cloud (e.g., `aligned`) |
+| `OC_SSH_USER` | deploy-prod | SSH user on Oracle Cloud (e.g., `underway`) |
 | `OC_SSH_KEY` | deploy-prod | SSH private key for Oracle Cloud |

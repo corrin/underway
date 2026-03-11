@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
-from aligned.serializers.chat import (
+from underway.serializers.chat import (
     ChatInputSerializer,
     ChatMessageSerializer,
     ConversationSerializer,

@@ -6,8 +6,8 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from aligned.app import create_app
-from aligned.config import Settings, get_settings
+from underway.app import create_app
+from underway.config import Settings, get_settings
 
 
 @pytest.fixture

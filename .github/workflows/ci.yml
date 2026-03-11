@@ -18,9 +18,9 @@ jobs:
         image: mariadb:11
         env:
           MARIADB_ROOT_PASSWORD: root
-          MARIADB_DATABASE: aligned_test
-          MARIADB_USER: aligned
-          MARIADB_PASSWORD: aligned-ci-pass
+          MARIADB_DATABASE: underway_test
+          MARIADB_USER: underway
+          MARIADB_PASSWORD: underway-ci-pass
         ports:
           - 3306:3306
         options: >-
@@ -49,15 +49,15 @@ jobs:
       - name: Install dependencies
         run: poetry install
       - name: mypy
-        run: poetry run mypy aligned --strict
+        run: poetry run mypy underway --strict
       - name: ruff check
-        run: poetry run ruff check aligned
+        run: poetry run ruff check underway
       - name: ruff format
-        run: poetry run ruff format --check aligned
+        run: poetry run ruff format --check underway
       - name: pytest
         run: poetry run pytest -v
         env:
-          TEST_DATABASE_URL: mysql+aiomysql://aligned:aligned-ci-pass@127.0.0.1:3306/aligned_test
+          TEST_DATABASE_URL: mysql+aiomysql://underway:underway-ci-pass@127.0.0.1:3306/underway_test
           JWT_SECRET_KEY: test-secret
 
   frontend:

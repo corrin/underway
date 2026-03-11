@@ -6,14 +6,14 @@ from unittest.mock import patch
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aligned.auth.jwt import create_access_token
-from aligned.models.user import User
+from underway.auth.jwt import create_access_token
+from underway.models.user import User
 
 SECRET = "test-secret-key-at-least-32-chars!"
 
 
 class TestGoogleLogin:
-    @patch("aligned.routes.auth.verify_google_id_token")
+    @patch("underway.routes.auth.verify_google_id_token")
     async def test_login_creates_user(self, mock_verify: object, client: AsyncClient) -> None:
         mock_verify.return_value = "new@example.com"  # type: ignore[union-attr]
         response = await client.post("/api/auth/google", json={"id_token": "valid-google-token"})
@@ -22,7 +22,7 @@ class TestGoogleLogin:
         assert "token" in data
         assert data["user"]["email"] == "new@example.com"
 
-    @patch("aligned.routes.auth.verify_google_id_token")
+    @patch("underway.routes.auth.verify_google_id_token")
     async def test_login_returns_existing_user(
         self, mock_verify: object, client: AsyncClient, db_session: AsyncSession
     ) -> None:
@@ -37,7 +37,7 @@ class TestGoogleLogin:
         assert response.json()["user"]["email"] == "existing@example.com"
         assert response.json()["user"]["id"] == str(user.id)
 
-    @patch("aligned.routes.auth.verify_google_id_token")
+    @patch("underway.routes.auth.verify_google_id_token")
     async def test_login_invalid_token_returns_401(self, mock_verify: object, client: AsyncClient) -> None:
         mock_verify.side_effect = ValueError("bad token")  # type: ignore[union-attr]
         response = await client.post("/api/auth/google", json={"id_token": "bad-token"})

@@ -6,9 +6,9 @@ The chat system adds three backend components and one frontend view.
 
 ### Backend
 
-- **Chat streaming endpoint** (`aligned/chat/streaming.py`) — `POST /api/chat` returning SSE. Uses `litellm.acompletion()` directly with async streaming. Contains the agentic tool-calling loop.
-- **Conversation ViewSet** (`aligned/viewsets/chat.py`) — Standard CRUD for conversations + message history action. Uses FastREST ModelViewSet.
-- **Tool system** (`aligned/chat/tools.py`) — 5 tool definitions (get_tasks, complete_task, create_task, update_task, get_calendar). All handlers async with session parameter. get_calendar is a stub returning empty events.
+- **Chat streaming endpoint** (`underway/chat/streaming.py`) — `POST /api/chat` returning SSE. Uses `litellm.acompletion()` directly with async streaming. Contains the agentic tool-calling loop.
+- **Conversation ViewSet** (`underway/viewsets/chat.py`) — Standard CRUD for conversations + message history action. Uses FastREST ModelViewSet.
+- **Tool system** (`underway/chat/tools.py`) — 5 tool definitions (get_tasks, complete_task, create_task, update_task, get_calendar). All handlers async with session parameter. get_calendar is a stub returning empty events.
 - **Dashboard endpoint** — `GET /api/dashboard` returning tasks (real) + calendar (empty stub).
 
 ### Frontend
@@ -78,11 +78,11 @@ Conversation and ChatMessage models already exist from Phase 1. Message persiste
 
 | File | Action |
 |------|--------|
-| `aligned/chat/streaming.py` | New — chat endpoint + SSE generator + dashboard |
-| `aligned/chat/tools.py` | New — tool definitions + async handlers |
-| `aligned/viewsets/chat.py` | New — ConversationViewSet |
-| `aligned/serializers/chat.py` | New — Conversation, ChatMessage, ChatInput serializers |
-| `aligned/app.py` | Modify — register new routes + viewset |
+| `underway/chat/streaming.py` | New — chat endpoint + SSE generator + dashboard |
+| `underway/chat/tools.py` | New — tool definitions + async handlers |
+| `underway/viewsets/chat.py` | New — ConversationViewSet |
+| `underway/serializers/chat.py` | New — Conversation, ChatMessage, ChatInput serializers |
+| `underway/app.py` | Modify — register new routes + viewset |
 | `frontend/src/views/ChatView.vue` | New — chat page with sidebar |
 | `frontend/src/components/ChatMessage.vue` | New — markdown + tool results |
 | `frontend/src/stores/chat.ts` | New — Pinia store with SSE handling |

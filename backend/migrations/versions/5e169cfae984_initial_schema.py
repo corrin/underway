@@ -11,7 +11,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-from aligned.models.types import MySQLUUID
+from underway.models.types import MySQLUUID
 
 # revision identifiers, used by Alembic.
 revision: str = "5e169cfae984"

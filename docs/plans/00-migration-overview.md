@@ -1,4 +1,4 @@
-# Migration Overview: virtual_assistant -> aligned (FastREST)
+# Migration Overview: virtual_assistant -> underway (FastREST)
 
 ## Why We're Doing This
 
@@ -23,15 +23,15 @@ The goal is feature parity. We're not adding features. We're rebuilding the same
 | Auth | JWT tokens, Google Sign-In on frontend |
 | Database | Fresh MySQL DB, new Alembic history |
 | Testing | Playwright e2e + pytest unit/integration from day one |
-| Name | `aligned` throughout (no more `virtual_assistant`) |
+| Name | `underway` throughout (no more `virtual_assistant`) |
 | Approach | Port-and-adapt, phase by phase |
 
 ## Repo Structure
 
 ```
-aligned/
+underway/
 ├── backend/
-│   ├── aligned/                # Python package
+│   ├── underway/                # Python package
 │   │   ├── models/             # SQLAlchemy async models
 │   │   ├── serializers/        # FastREST serializers
 │   │   ├── viewsets/           # FastREST viewsets
@@ -79,8 +79,8 @@ Each phase delivers: API endpoints + Vue UI + tests (unit, integration, e2e).
 
 These must pass before any phase is considered complete. They are set up in Phase 0 and enforced by pre-commit hooks from that point forward.
 
-- `mypy aligned --strict` — zero errors, no `# type: ignore` without documented justification
-- `ruff check aligned` + `ruff format --check aligned` — zero violations
+- `mypy underway --strict` — zero errors, no `# type: ignore` without documented justification
+- `ruff check underway` + `ruff format --check underway` — zero violations
 - `pytest` — all tests pass (unit + integration + e2e)
 - `npx vue-tsc --noEmit` — frontend TypeScript strict, zero errors
 - OpenAPI spec at `/docs` reflects all endpoints with typed request/response schemas
@@ -91,20 +91,20 @@ The original virtual_assistant has no type checking, inconsistent validation, an
 
 The original codebase lives at `/home/corrin/src/virtual_assistant/`. Key mappings:
 
-| Original | Aligned |
+| Original | Underway |
 |----------|---------|
-| `virtual_assistant/database/user.py` | `aligned/models/user.py` |
-| `virtual_assistant/database/task.py` | `aligned/models/task.py` |
-| `virtual_assistant/database/external_account.py` | `aligned/models/external_account.py` |
-| `virtual_assistant/chat/models.py` | `aligned/models/conversation.py` |
-| `virtual_assistant/flask_app.py` | `aligned/app.py` |
-| `virtual_assistant/auth/user_auth.py` | `aligned/auth/jwt.py` |
-| `virtual_assistant/chat/chat_routes.py` | `aligned/viewsets/chat.py` |
-| `virtual_assistant/chat/tools.py` | `aligned/chat/tools.py` |
-| `virtual_assistant/tasks/task_routes.py` | `aligned/viewsets/tasks.py` |
-| `virtual_assistant/tasks/task_manager.py` | `aligned/providers/task_manager.py` |
-| `virtual_assistant/tasks/todoist_provider.py` | `aligned/providers/todoist.py` |
-| `virtual_assistant/meetings/` | `aligned/providers/calendar/` |
-| `virtual_assistant/schedule/` | `aligned/schedule/` |
-| `virtual_assistant/utils/settings.py` | `aligned/config.py` |
+| `virtual_assistant/database/user.py` | `underway/models/user.py` |
+| `virtual_assistant/database/task.py` | `underway/models/task.py` |
+| `virtual_assistant/database/external_account.py` | `underway/models/external_account.py` |
+| `virtual_assistant/chat/models.py` | `underway/models/conversation.py` |
+| `virtual_assistant/flask_app.py` | `underway/app.py` |
+| `virtual_assistant/auth/user_auth.py` | `underway/auth/jwt.py` |
+| `virtual_assistant/chat/chat_routes.py` | `underway/viewsets/chat.py` |
+| `virtual_assistant/chat/tools.py` | `underway/chat/tools.py` |
+| `virtual_assistant/tasks/task_routes.py` | `underway/viewsets/tasks.py` |
+| `virtual_assistant/tasks/task_manager.py` | `underway/providers/task_manager.py` |
+| `virtual_assistant/tasks/todoist_provider.py` | `underway/providers/todoist.py` |
+| `virtual_assistant/meetings/` | `underway/providers/calendar/` |
+| `virtual_assistant/schedule/` | `underway/schedule/` |
+| `virtual_assistant/utils/settings.py` | `underway/config.py` |
 | `virtual_assistant/templates/` | `frontend/src/views/` |

@@ -24,7 +24,7 @@ def backend_server() -> Generator[str, None, None]:
     """Start the backend server for e2e tests with TESTING=true."""
     backend_dir = os.path.join(os.path.dirname(__file__), "..", "..")
     proc = subprocess.Popen(
-        [".venv/bin/python", "-m", "uvicorn", "aligned.app:create_app", "--factory", "--port", "8091"],
+        [".venv/bin/python", "-m", "uvicorn", "underway.app:create_app", "--factory", "--port", "8091"],
         cwd=backend_dir,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

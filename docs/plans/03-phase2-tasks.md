@@ -7,17 +7,17 @@
 ## What was built
 
 ### Backend
-- **Task provider abstraction** (`aligned/providers/task_provider.py`) — ABC with `authenticate`, `get_tasks`, `update_task`, `update_task_status`, `get_ai_instructions`
+- **Task provider abstraction** (`underway/providers/task_provider.py`) — ABC with `authenticate`, `get_tasks`, `update_task`, `update_task_status`, `get_ai_instructions`
 - **Provider implementations:**
-  - Todoist (`aligned/providers/todoist.py`) — full implementation with async HTTP
-  - Google Tasks (`aligned/providers/google_tasks.py`) — uses `google-api-python-client` with typed stubs
-  - Outlook (`aligned/providers/outlook_tasks.py`) — uses `msgraph-sdk` (Microsoft Graph `todo.lists` API)
-- **Task manager** (`aligned/providers/task_manager.py`) — coordinator that instantiates providers
-- **Task sync service** (`aligned/services/task_sync.py`) — content hash-based change detection (SHA256)
-- **Task ViewSet** (`aligned/viewsets/tasks.py`) — full CRUD + custom actions: `by-list`, `move`, `reorder`, `sync`, `update-status`
-- **Todoist auth routes** (`aligned/routes/todoist_auth.py`) — add/update/delete/test API keys
-- **Token refresh** (`aligned/providers/token_refresh.py`) — background async loop for OAuth token refresh
-- **O365 credentials** (`aligned/providers/o365_credentials.py`) — `TokenCredential` subclass for Microsoft Graph
+  - Todoist (`underway/providers/todoist.py`) — full implementation with async HTTP
+  - Google Tasks (`underway/providers/google_tasks.py`) — uses `google-api-python-client` with typed stubs
+  - Outlook (`underway/providers/outlook_tasks.py`) — uses `msgraph-sdk` (Microsoft Graph `todo.lists` API)
+- **Task manager** (`underway/providers/task_manager.py`) — coordinator that instantiates providers
+- **Task sync service** (`underway/services/task_sync.py`) — content hash-based change detection (SHA256)
+- **Task ViewSet** (`underway/viewsets/tasks.py`) — full CRUD + custom actions: `by-list`, `move`, `reorder`, `sync`, `update-status`
+- **Todoist auth routes** (`underway/routes/todoist_auth.py`) — add/update/delete/test API keys
+- **Token refresh** (`underway/providers/token_refresh.py`) — background async loop for OAuth token refresh
+- **O365 credentials** (`underway/providers/o365_credentials.py`) — `TokenCredential` subclass for Microsoft Graph
 
 ### Frontend
 - **Task board** (`views/TasksView.vue`) — three-column drag-and-drop layout (prioritized/unprioritized/completed)

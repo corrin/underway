@@ -5,8 +5,8 @@ import uuid
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aligned.auth.jwt import create_access_token
-from aligned.models.user import User
+from underway.auth.jwt import create_access_token
+from underway.models.user import User
 
 SECRET = "test-secret-key-at-least-32-chars!"
 

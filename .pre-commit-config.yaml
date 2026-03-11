@@ -15,7 +15,7 @@ repos:
         files: ^backend/
       - id: mypy
         name: mypy
-        entry: bash -c 'cd backend && .venv/bin/mypy aligned --strict'
+        entry: bash -c 'cd backend && .venv/bin/mypy underway --strict'
         language: system
         types: [python]
         pass_filenames: false
