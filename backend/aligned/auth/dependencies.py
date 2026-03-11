@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, Request
@@ -12,6 +13,8 @@ from aligned.auth.jwt import JWTUser, verify_access_token
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 from aligned.config import Settings, get_settings
+
+logger = logging.getLogger(__name__)
 
 _bearer_scheme = HTTPBearer()
 
@@ -36,6 +39,7 @@ async def get_current_user(
         payload = verify_access_token(credentials.credentials, settings.jwt_secret_key)
         return JWTUser(id=uuid.UUID(payload["sub"]), email=payload["email"])
     except (jwt.PyJWTError, KeyError, ValueError) as exc:
+        logger.exception("JWT verification failed")
         from fastapi import HTTPException, status
 
         raise HTTPException(
@@ -61,6 +65,7 @@ async def get_current_user_from_request(request: Request) -> JWTUser:
         payload = verify_access_token(token, settings.jwt_secret_key)
         return JWTUser(id=uuid.UUID(payload["sub"]), email=payload["email"])
     except (jwt.PyJWTError, KeyError, ValueError) as exc:
+        logger.exception("JWT verification failed for request")
         from fastapi import HTTPException, status
 
         raise HTTPException(

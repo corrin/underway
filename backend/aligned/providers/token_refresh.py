@@ -60,6 +60,9 @@ async def refresh_soon_expiring_tokens(
 
 async def _refresh_account_token(session: AsyncSession, account: ExternalAccount) -> None:
     """Refresh the OAuth token for a single account."""
+    if account.provider not in ("google", "o365"):
+        raise ValueError(f"Unsupported provider for token refresh: {account.provider}")
+
     if account.provider == "google":
         from google.auth.transport.requests import Request
         from google.oauth2.credentials import Credentials
@@ -75,27 +78,28 @@ async def _refresh_account_token(session: AsyncSession, account: ExternalAccount
         account.token = creds.token
         account.last_sync = datetime.now(UTC)
         logger.info("Refreshed Google token for %s", account.external_email)
+        return
 
-    elif account.provider == "o365":
-        import httpx
+    # provider == "o365"
+    import httpx
 
-        resp = await httpx.AsyncClient().post(
-            "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-            data={
-                "grant_type": "refresh_token",
-                "refresh_token": account.refresh_token,
-                "client_id": account.client_id,
-                "client_secret": account.client_secret,
-                "scope": account.scopes or "",
-            },
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        account.token = data["access_token"]
-        if "refresh_token" in data:
-            account.refresh_token = data["refresh_token"]
-        account.last_sync = datetime.now(UTC)
-        logger.info("Refreshed O365 token for %s", account.external_email)
+    resp = await httpx.AsyncClient().post(
+        "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": account.refresh_token,
+            "client_id": account.client_id,
+            "client_secret": account.client_secret,
+            "scope": account.scopes or "",
+        },
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    account.token = data["access_token"]
+    if "refresh_token" in data:
+        account.refresh_token = data["refresh_token"]
+    account.last_sync = datetime.now(UTC)
+    logger.info("Refreshed O365 token for %s", account.external_email)
 
 
 async def token_refresh_loop(

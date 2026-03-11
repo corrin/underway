@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from typing import Annotated
 
@@ -16,6 +17,8 @@ from aligned.auth.google import verify_google_id_token
 from aligned.auth.jwt import JWTUser, create_access_token
 from aligned.config import Settings, get_settings
 from aligned.models.user import User
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -56,11 +59,12 @@ async def google_login(
     """Verify Google ID token, find/create user, return JWT."""
     try:
         email = await asyncio.to_thread(verify_google_id_token, body.id_token, settings.google_client_id)
-    except ValueError as exc:
+    except ValueError:
+        logger.exception("Google ID token verification failed")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Google ID token",
-        ) from exc
+        ) from None
 
     result = await session.execute(select(User).where(User.app_login == email))
     user = result.scalar_one_or_none()

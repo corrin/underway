@@ -33,11 +33,8 @@ class TaskManager:
 
     def _initialize_providers(self) -> None:
         for name, cls in self._provider_classes.items():
-            try:
-                self.providers[name] = cls()
-                logger.debug("Initialized %s provider", name)
-            except Exception:
-                logger.exception("Failed to initialize %s provider", name)
+            self.providers[name] = cls()
+            logger.debug("Initialized %s provider", name)
 
     def get_provider(self, provider_name: str) -> TaskProvider:
         provider = self.providers.get(provider_name)
@@ -60,13 +57,8 @@ class TaskManager:
         results: dict[str, tuple[str, str] | None] = {}
 
         for name, provider in providers_to_check.items():
-            try:
-                result = await provider.authenticate(session, user_id, task_user_email)
-                results[name] = result
-            except Exception:
-                logger.exception("Error authenticating with %s", name)
-                results[name] = None
-                raise
+            result = await provider.authenticate(session, user_id, task_user_email)
+            results[name] = result
 
         return results
 

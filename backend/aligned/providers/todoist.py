@@ -70,13 +70,9 @@ class TodoistProvider(TaskProvider):
 
         # Get projects for name mapping
         projects: dict[str, str] = {}
-        try:
-            for page in api.get_projects():
-                for p in page:
-                    projects[p.id] = p.name
-        except Exception:
-            logger.exception("Error getting Todoist projects for user_id=%s", user_id)
-            raise
+        for page in api.get_projects():
+            for p in page:
+                projects[p.id] = p.name
 
         tasks: list[ProviderTask] = []
 
@@ -88,13 +84,7 @@ class TodoistProvider(TaskProvider):
                 due_date = None
                 if t.due:
                     due_date_str = str(t.due.date)
-                    try:
-                        due_date = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
-                    except ValueError:
-                        try:
-                            due_date = datetime.strptime(due_date_str, "%Y-%m-%d")
-                        except ValueError:
-                            logger.warning("Could not parse Todoist due date: %s", due_date_str)
+                    due_date = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
 
                 tasks.append(
                     ProviderTask(

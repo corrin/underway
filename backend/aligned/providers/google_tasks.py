@@ -67,21 +67,14 @@ class GoogleTaskProvider(TaskProvider):
             provider="google",
             user_id=user_id,
         )
-        if not account:
-            return self.provider_name, "/settings"
-        if account.needs_reauth:
+        if not account or account.needs_reauth:
             return self.provider_name, "/settings"
 
-        try:
-            client = await self._get_client(session, user_id, task_user_email)
-            if not client:
-                raise RuntimeError("Failed to initialize Google Tasks client")
-            return None
-        except Exception:
-            logger.exception("Google credentials invalid for user_id=%s", user_id)
-            account.needs_reauth = True
-            await session.flush()
+        client = await self._get_client(session, user_id, task_user_email)
+        if not client:
             return self.provider_name, "/settings"
+
+        return None
 
     async def get_tasks(self, session: AsyncSession, user_id: UUID, task_user_email: str) -> list[ProviderTask]:
         """Get all tasks from Google Tasks API."""
@@ -97,16 +90,13 @@ class GoogleTaskProvider(TaskProvider):
         for task_list in task_lists:
             list_id = task_list["id"]
             list_name = task_list.get("title", "Tasks")
-            try:
-                task_result = client.tasks().list(tasklist=list_id, showCompleted=False, showHidden=True).execute()
-                items = task_result.get("items", [])
-                for item in items:
-                    task_dict: dict[str, object] = dict(item)
-                    task_dict["listId"] = list_id
-                    task_dict["listName"] = list_name
-                    all_tasks.append(task_dict)
-            except Exception:
-                logger.warning("Error getting tasks for list %s", list_id, exc_info=True)
+            task_result = client.tasks().list(tasklist=list_id, showCompleted=False, showHidden=True).execute()
+            items = task_result.get("items", [])
+            for item in items:
+                task_dict: dict[str, object] = dict(item)
+                task_dict["listId"] = list_id
+                task_dict["listName"] = list_name
+                all_tasks.append(task_dict)
 
         tasks: list[ProviderTask] = []
         for t in all_tasks:

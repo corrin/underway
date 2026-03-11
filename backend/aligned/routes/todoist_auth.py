@@ -107,15 +107,12 @@ async def test_connection(request: Request) -> dict[str, object]:
     if not api_key:
         return {"success": False, "message": "API key is required."}
 
-    try:
-        from todoist_api_python.api import TodoistAPI
+    from todoist_api_python.api import TodoistAPI
 
-        api = TodoistAPI(api_key)
+    api = TodoistAPI(api_key)
+    try:
         api.get_projects()
-        return {"success": True, "message": "Connection successful."}
     except Exception:
         logger.exception("Todoist API key test failed")
-        return {
-            "success": False,
-            "message": "Connection failed. Please check your API key.",
-        }
+        return {"success": False, "message": "Connection failed. Please check your API key."}
+    return {"success": True, "message": "Connection successful."}

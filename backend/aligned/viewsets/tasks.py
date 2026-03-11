@@ -119,12 +119,13 @@ class TaskViewSet(SessionMixin, ModelViewSet):
         for item in data["order"]:
             task_id = item.get("id")
             position = item.get("position")
-            if task_id is not None and position is not None:
-                await session.execute(
-                    update(Task)
-                    .where(Task.id == uuid.UUID(str(task_id)), Task.user_id == user.id)
-                    .values(position=position)
-                )
+            if task_id is None or position is None:
+                continue
+            await session.execute(
+                update(Task)
+                .where(Task.id == uuid.UUID(str(task_id)), Task.user_id == user.id)
+                .values(position=position)
+            )
 
         await session.flush()
         return {"status": "ok"}
@@ -149,12 +150,14 @@ class TaskViewSet(SessionMixin, ModelViewSet):
             raise HTTPException(status_code=404, detail="Task not found.")
 
         new_status = request.data.get("status")
-        if new_status:
-            task.status = new_status
-            if new_status == "completed":
-                task.list_type = "completed"
-            elif task.list_type == "completed":
-                task.list_type = "unprioritized"
+        if not new_status:
+            return {"status": "ok"}
+
+        task.status = new_status
+        if new_status == "completed":
+            task.list_type = "completed"
+        elif task.list_type == "completed":
+            task.list_type = "unprioritized"
 
         await session.flush()
         return {"status": "ok"}

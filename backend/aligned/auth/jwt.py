@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -9,6 +10,8 @@ from typing import Any
 
 import jwt
 from fastrest.authentication import TokenAuthentication
+
+logger = logging.getLogger(__name__)
 
 TOKEN_EXPIRY_HOURS = 24
 
@@ -42,10 +45,15 @@ def create_token_auth(secret_key: str) -> TokenAuthentication:
     """Factory that returns a FastREST TokenAuthentication using JWT."""
 
     def get_user_by_token(token: str) -> JWTUser | None:
+        # PyJWTError → None is the contract TokenAuthentication expects for
+        # invalid/expired tokens.  Keep the try as narrow as possible so that
+        # unrelated errors (e.g. bad UUID in "sub") still crash loudly.
         try:
             payload = verify_access_token(token, secret_key)
-            return JWTUser(id=uuid.UUID(payload["sub"]), email=payload["email"])
         except jwt.PyJWTError:
+            logger.exception("JWT verification failed")
             return None
+
+        return JWTUser(id=uuid.UUID(payload["sub"]), email=payload["email"])
 
     return TokenAuthentication(get_user_by_token=get_user_by_token, keyword="Bearer")
