@@ -242,7 +242,7 @@ class TestGetCalendar:
 
         result = await execute_tool("get_calendar", {}, user.id, db_session)
         assert result["events"] == []
-        assert result["message"] == "Calendar not connected yet."
+        assert result["message"] == "No calendar connected."
 
     async def test_with_days_ahead(self, db_session: AsyncSession) -> None:
         user = await _make_user(db_session, "calendar2@test.com")

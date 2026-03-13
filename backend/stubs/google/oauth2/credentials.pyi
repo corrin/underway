@@ -5,6 +5,10 @@ class Credentials:
     expiry: datetime | None
     expired: bool
     refresh_token: str | None
+    token_uri: str | None
+    client_id: str | None
+    client_secret: str | None
+    scopes: list[str] | None
 
     def __init__(
         self,

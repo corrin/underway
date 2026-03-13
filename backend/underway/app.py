@@ -14,6 +14,8 @@ from underway.chat.streaming import router as chat_router
 from underway.config import Settings, get_settings
 from underway.routes.auth import router as auth_router
 from underway.routes.auth import test_router as auth_test_router
+from underway.routes.calendar import router as calendar_router
+from underway.routes.oauth import router as oauth_router
 from underway.routes.settings import router as settings_router
 from underway.routes.todoist_auth import router as todoist_auth_router
 from underway.viewsets.chat import ConversationViewSet
@@ -76,7 +78,9 @@ def create_app(
 
     # Plain FastAPI routes
     app.include_router(auth_router)
+    app.include_router(calendar_router)
     app.include_router(chat_router)
+    app.include_router(oauth_router)
     app.include_router(settings_router)
     app.include_router(todoist_auth_router)
 
