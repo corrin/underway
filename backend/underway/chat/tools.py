@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Awaitable, Callable
+from datetime import UTC
 from typing import Any
 
 from sqlalchemy import select
@@ -243,9 +244,29 @@ async def _handle_get_calendar(
     user_id: uuid.UUID,
     session: AsyncSession,
 ) -> dict[str, Any]:
-    """Stub: return empty events list. Calendar integration deferred."""
-    _ = arguments, user_id, session  # unused for now
-    return {"events": [], "message": "Calendar not connected yet."}
+    """Retrieve calendar events from the user's primary calendar account."""
+    from datetime import datetime, timedelta
+
+    from underway.models.external_account import ExternalAccount
+    from underway.providers.calendar.factory import get_calendar_provider
+
+    account = await ExternalAccount.get_primary_account(session, user_id, "calendar")
+    if not account:
+        return {"events": [], "message": "No calendar connected."}
+
+    provider = get_calendar_provider(account.provider)
+    if not provider:
+        return {"events": [], "message": f"Unsupported provider: {account.provider}"}
+
+    days_ahead = arguments.get("days_ahead", 7)
+    now = datetime.now(UTC)
+    end = now + timedelta(days=days_ahead)
+
+    events = await provider.get_events(session, user_id, account.external_email, now, end)
+    return {
+        "events": [e.model_dump(mode="json") for e in events],
+        "count": len(events),
+    }
 
 
 # ---------------------------------------------------------------------------
