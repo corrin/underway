@@ -1,78 +1,93 @@
-"""Playwright e2e test fixtures."""
+"""Playwright e2e test fixtures — uses real Chrome profile with Google auth.
+
+Prerequisites: Full Stack must be running (backend, frontend, ngrok).
+
+All fixtures use sync Playwright (sync_playwright).
+"""
 
 import os
-import subprocess
-import time
+import sys
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
+from dotenv import find_dotenv, load_dotenv
+from playwright.sync_api import Page, sync_playwright
+
+load_dotenv(find_dotenv())
 
 # Global Playwright timeout — no individual timeout should exceed this.
-E2E_TIMEOUT_MS = 5000
+E2E_TIMEOUT_MS = 10000
+
+# Chrome profile with saved Google session.
+# To set up: google-chrome --user-data-dir=<path>
+# Then log into Google and close the browser.
+# Add PLAYWRIGHT_CHROME_PROFILE=<path> to backend/.env
+CHROME_PROFILE_DIR = os.environ.get("PLAYWRIGHT_CHROME_PROFILE", "")
+if not CHROME_PROFILE_DIR:
+    sys.exit("PLAYWRIGHT_CHROME_PROFILE is not set. Add it to backend/.env")
+
+# Base URL for the app — must go through ngrok, never localhost.
+BASE_URL = os.environ.get("BASE_URL", "")
+if not BASE_URL:
+    sys.exit("BASE_URL is not set. Add it to backend/.env")
+
+
+@pytest.fixture(scope="session")
+def base_url() -> str:
+    """App base URL (ngrok)."""
+    return BASE_URL
 
 
 @pytest.fixture
-def page(page: "pytest.Page") -> "pytest.Page":  # type: ignore[name-defined]
-    """Set global Playwright timeout on every page."""
-    page.set_default_timeout(E2E_TIMEOUT_MS)
-    page.set_default_navigation_timeout(E2E_TIMEOUT_MS)
-    return page
+def page() -> Generator[Page]:
+    """Browser page for non-authenticated tests."""
+    pw = sync_playwright().start()
+    browser = pw.chromium.launch()
+    p = browser.new_page()
+    p.set_default_timeout(E2E_TIMEOUT_MS)
+    p.set_default_navigation_timeout(E2E_TIMEOUT_MS)
 
+    yield p
 
-@pytest.fixture(scope="session")
-def backend_server() -> Generator[str, None, None]:
-    """Start the backend server for e2e tests with TESTING=true."""
-    backend_dir = os.path.join(os.path.dirname(__file__), "..", "..")
-    proc = subprocess.Popen(
-        [".venv/bin/python", "-m", "uvicorn", "underway.app:create_app", "--factory", "--port", "8091"],
-        cwd=backend_dir,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env={
-            **os.environ,
-            "TESTING": "true",
-        },
-    )
-    time.sleep(2)
-    yield "http://localhost:8091"
-    proc.terminate()
-    proc.wait()
-
-
-@pytest.fixture(scope="session")
-def frontend_server() -> Generator[str, None, None]:
-    """Start the frontend dev server for e2e tests on a dedicated port."""
-    frontend_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "frontend")
-    port = "5191"
-    proc = subprocess.Popen(
-        ["npx", "vite", "--port", port, "--strictPort"],
-        cwd=frontend_dir,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    time.sleep(3)
-    yield f"http://localhost:{port}"
-    proc.terminate()
-    proc.wait()
+    browser.close()
+    pw.stop()
 
 
 @pytest.fixture
 def authenticated_page(
-    backend_server: str,
-    frontend_server: str,
-    page: "pytest.Page",  # type: ignore[name-defined]
-) -> "pytest.Page":  # type: ignore[name-defined]
-    """Page with a valid JWT token in localStorage, bypassing Google OAuth."""
-    response = page.request.post(
-        f"{backend_server}/api/auth/test-login",
-        data={"email": "e2e-test@example.com"},
+    base_url: str,
+) -> Generator[Page]:
+    """Page with real Google auth via persistent Chrome profile."""
+    # Remove stale SingletonLock to prevent "profile already in use" crashes
+    lock_file = Path(CHROME_PROFILE_DIR) / "SingletonLock"
+    lock_file.unlink(missing_ok=True)
+
+    pw = sync_playwright().start()
+    context = pw.chromium.launch_persistent_context(
+        CHROME_PROFILE_DIR,
+        channel="chrome",
+        headless=False,
+        args=["--disable-gpu"],
     )
-    assert response.ok, f"test-login failed: {response.status}"
-    token = response.json()["token"]
-    # Navigate to frontend first so localStorage is on the right origin
-    page.goto(frontend_server)
-    page.evaluate(f"localStorage.setItem('token', '{token}')")
-    # Reload so the Vue router picks up the token from localStorage
-    page.reload()
+    page = context.pages[0] if context.pages else context.new_page()
+    page.set_default_timeout(E2E_TIMEOUT_MS)
+    page.set_default_navigation_timeout(E2E_TIMEOUT_MS)
+
+    # Navigate to the app — lands on /login
+    page.goto(base_url)
     page.wait_for_load_state("domcontentloaded")
-    return page
+
+    # Click Google sign-in button — Google cookies in the profile
+    # auto-complete the OAuth flow and redirect back with a token
+    google_btn = page.locator("#g_id_signin")
+    google_btn.wait_for(state="visible")
+    google_btn.click()
+
+    # Wait for OAuth redirect to complete and land on an authenticated page
+    page.wait_for_url("**/chat**", timeout=E2E_TIMEOUT_MS)
+
+    yield page
+
+    context.close()
+    pw.stop()

@@ -6,3 +6,4 @@ backend/.coverage
 backend/*.db
 .worktrees/
 .env
+.playwright-state.json
