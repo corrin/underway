@@ -38,6 +38,9 @@ CHROME_PROFILE_DIR = os.environ.get("PLAYWRIGHT_CHROME_PROFILE", "")
 # Base URL for the app — must go through ngrok, never localhost.
 BASE_URL = os.environ.get("BASE_URL", "")
 
+# Trace output directory
+TRACE_DIR = Path("/tmp/e2e-results")
+
 
 def aid(value: str) -> str:
     """Return a CSS selector for data-automation-id."""
@@ -118,37 +121,31 @@ def authenticated_context(
     page.set_default_navigation_timeout(OAUTH_TIMEOUT_MS)
 
     page.goto(base_url, wait_until="networkidle")
-    page.screenshot(path="/tmp/e2e_01_landing.png")
 
-    # The Google Sign-In button is a cross-origin iframe inside #g_id_signin.
-    # Click the iframe element directly so the click reaches Google's button.
-    gsi_container = page.locator(aid("login-google-signin"))
-    gsi_iframe = gsi_container.locator("iframe")
-    gsi_iframe.wait_for(state="visible")
+    # Check if already authenticated — the nav bar only renders when logged in.
+    if page.locator(aid("nav-logout-button")).count() == 0:
+        # Not logged in — perform Google OAuth via the GSI button.
+        # The button lives inside a cross-origin iframe in #g_id_signin.
+        # Use frame_locator() to reach inside — clicking the iframe element
+        # from outside doesn't work with CDP.
+        gsi_container = page.locator(aid("login-google-signin"))
+        gsi_frame = gsi_container.frame_locator("iframe")
+        gsi_button = gsi_frame.locator("div[role='button']")
+        gsi_button.wait_for(state="visible", timeout=OAUTH_TIMEOUT_MS)
 
-    # Get the iframe bounding box and click at its center coordinates on the
-    # page level — this avoids cross-origin iframe click issues with CDP.
-    box = gsi_iframe.bounding_box()
-    if box:
-        page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        with page.expect_navigation(wait_until="commit", timeout=OAUTH_TIMEOUT_MS):
+            gsi_button.click()
 
-    # Wait a moment, then screenshot to see where we are
-    page.wait_for_timeout(3000)
-    page.screenshot(path="/tmp/e2e_02_after_click.png")
-
-    # Log the current URL for debugging
-    current_url = page.url
-    print(f"URL after GSI click: {current_url}")
-
-    # If we're on the Google account chooser, select the account
-    if "accounts.google.com" in current_url:
+        # Now on Google's account chooser. Select the target account.
         account_item = page.locator("text=lakeland@gmail.com")
         account_item.wait_for(state="visible", timeout=OAUTH_TIMEOUT_MS)
-        account_item.first.click()
 
-    # Wait for the full redirect chain to land back on our app.
-    page.wait_for_url("**/chat**", wait_until="domcontentloaded", timeout=OAUTH_TIMEOUT_MS)
-    page.screenshot(path="/tmp/e2e_03_authenticated.png")
+        with page.expect_navigation(wait_until="commit", timeout=OAUTH_TIMEOUT_MS):
+            account_item.first.click()
+
+        # Wait for the full redirect chain to land back on our app at /chat.
+        page.wait_for_url("**/chat**", wait_until="domcontentloaded", timeout=OAUTH_TIMEOUT_MS)
+
     page.close()
 
     yield context
@@ -160,13 +157,27 @@ def authenticated_context(
 
 @pytest.fixture
 def authenticated_page(
+    request: pytest.FixtureRequest,
     authenticated_context: BrowserContext,
 ) -> Generator[Page]:
-    """New tab from the authenticated session context, closed after each test."""
+    """New tab from the authenticated session context, closed after each test.
+
+    Captures a Playwright trace for every test. Traces are saved to
+    /tmp/e2e-results/<test-name>/trace.zip — open with:
+        npx playwright show-trace /tmp/e2e-results/<test-name>/trace.zip
+    """
     page = authenticated_context.new_page()
     page.set_default_timeout(E2E_TIMEOUT_MS)
     page.set_default_navigation_timeout(E2E_TIMEOUT_MS)
 
+    # Start tracing for this test
+    test_name = request.node.name.replace("/", "-").replace("::", "-")
+    authenticated_context.tracing.start(screenshots=True, snapshots=True)
+
     yield page
 
+    # Save trace regardless of pass/fail
+    trace_path = TRACE_DIR / test_name
+    trace_path.mkdir(parents=True, exist_ok=True)
+    authenticated_context.tracing.stop(path=str(trace_path / "trace.zip"))
     page.close()

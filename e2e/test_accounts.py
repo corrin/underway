@@ -18,34 +18,55 @@ from conftest import OAUTH_TIMEOUT_MS, aid
 # ---------------------------------------------------------------------------
 
 
-def delete_account_if_exists(page: Page, email: str) -> None:
-    """Find a table row by email, click Delete, confirm the modal, wait for removal."""
-    row = page.locator(f".accounts-table tbody tr:has(.col-email:text-is('{email}'))")
-    if row.count() == 0:
-        return
+def delete_account_if_exists(page: Page, email: str, provider: str) -> None:
+    """Find a table row by email AND provider, click Delete, confirm modal."""
+    # Use provider label + email to uniquely identify the row
+    rows = page.locator(".accounts-table tbody tr")
+    count = rows.count()
+    for i in range(count):
+        row = rows.nth(i)
+        row_text = row.inner_text()
+        if email in row_text and provider in row_text:
+            # Found the row — click its delete button
+            row.locator(".btn-delete").click()
 
-    row.locator(aid("settings-account-delete") if False else ".btn-delete").click()
+            # Confirm in the modal
+            modal_delete = page.locator(aid("settings-delete-confirm"))
+            modal_delete.wait_for(state="visible")
+            modal_delete.click()
 
-    # Confirm in the modal
-    modal_delete = page.locator(aid("settings-delete-confirm"))
-    modal_delete.wait_for(state="visible")
-    modal_delete.click()
+            # Wait for the page to reload accounts (modal closes)
+            page.locator(aid("settings-delete-modal")).wait_for(
+                state="detached", timeout=OAUTH_TIMEOUT_MS
+            )
+            # Give the API time to process and re-render
+            page.wait_for_timeout(1000)
+            return
 
-    # Wait for the row to disappear
-    row.wait_for(state="detached", timeout=OAUTH_TIMEOUT_MS)
+
+def click_oauth_account_if_picker(page: Page, email: str) -> None:
+    """If an OAuth provider shows an account picker, click the target email."""
+    # Give the redirect chain a moment to settle
+    page.wait_for_timeout(2000)
+    # If we're on an external OAuth domain with a picker, select the account
+    url = page.url
+    if "accounts.google.com" in url or "login.microsoftonline.com" in url:
+        picker = page.locator(f"text={email}")
+        if picker.count() > 0:
+            picker.first.click(timeout=OAUTH_TIMEOUT_MS)
 
 
 def wait_for_oauth_complete(page: Page, base_url: str) -> None:
     """Wait for the OAuth redirect chain to land back on /settings."""
-    page.wait_for_url(f"{base_url}/settings**", timeout=OAUTH_TIMEOUT_MS)
-    page.wait_for_load_state("domcontentloaded")
+    page.wait_for_url(f"{base_url}/settings**", wait_until="domcontentloaded", timeout=OAUTH_TIMEOUT_MS)
 
 
 def verify_account_row(page: Page, email: str, provider_label: str) -> None:
     """Assert that a row with the given email and provider exists and is Active."""
     row = page.locator(f".accounts-table tbody tr:has(.col-email:text-is('{email}'))")
+    # Filter to the row that also contains the provider label
+    row = row.filter(has_text=provider_label)
     expect(row).to_be_visible(timeout=OAUTH_TIMEOUT_MS)
-    expect(row).to_contain_text(provider_label)
     expect(row.locator(".status-badge")).to_contain_text("Active")
 
 
@@ -65,15 +86,10 @@ def test_add_google_account_lakeland(
     page.goto(f"{base_url}/settings")
     page.locator("h1").wait_for(state="visible")
 
-    delete_account_if_exists(page, email)
+    delete_account_if_exists(page, email, "Google")
 
     page.locator(aid("settings-connect-google")).click()
-
-    # Google may show an account picker — select the target email
-    picker_item = page.locator(f"text={email}")
-    if picker_item.count() > 0:
-        picker_item.first.click(timeout=OAUTH_TIMEOUT_MS)
-
+    click_oauth_account_if_picker(page, email)
     wait_for_oauth_complete(page, base_url)
 
     verify_account_row(page, email, "Google")
@@ -90,14 +106,10 @@ def test_add_google_account_morris(
     page.goto(f"{base_url}/settings")
     page.locator("h1").wait_for(state="visible")
 
-    delete_account_if_exists(page, email)
+    delete_account_if_exists(page, email, "Google")
 
     page.locator(aid("settings-connect-google")).click()
-
-    picker_item = page.locator(f"text={email}")
-    if picker_item.count() > 0:
-        picker_item.first.click(timeout=OAUTH_TIMEOUT_MS)
-
+    click_oauth_account_if_picker(page, email)
     wait_for_oauth_complete(page, base_url)
 
     verify_account_row(page, email, "Google")
@@ -119,15 +131,10 @@ def test_add_o365_account(
     page.goto(f"{base_url}/settings")
     page.locator("h1").wait_for(state="visible")
 
-    delete_account_if_exists(page, email)
+    delete_account_if_exists(page, email, "Microsoft")
 
     page.locator(aid("settings-connect-microsoft")).click()
-
-    # Microsoft may show an account picker
-    picker_item = page.locator(f"text={email}")
-    if picker_item.count() > 0:
-        picker_item.first.click(timeout=OAUTH_TIMEOUT_MS)
-
+    click_oauth_account_if_picker(page, email)
     wait_for_oauth_complete(page, base_url)
 
     verify_account_row(page, email, "Microsoft 365")
@@ -148,21 +155,13 @@ def test_add_todoist_account(
     page.goto(f"{base_url}/settings")
     page.locator("h1").wait_for(state="visible")
 
-    # For Todoist we don't know the exact email ahead of time,
-    # so we check if any Todoist row exists and delete it first.
-    todoist_row = page.locator(".accounts-table tbody tr:has(td:text-is('Todoist'))")
-    if todoist_row.count() > 0:
-        todoist_row.first.locator(".btn-delete").click()
-        modal_delete = page.locator(aid("settings-delete-confirm"))
-        modal_delete.wait_for(state="visible")
-        modal_delete.click()
-        todoist_row.first.wait_for(state="detached", timeout=OAUTH_TIMEOUT_MS)
+    delete_account_if_exists(page, "lakeland@gmail.com", "Todoist")
 
     page.locator(aid("settings-connect-todoist")).click()
 
     wait_for_oauth_complete(page, base_url)
 
     # Verify a Todoist row appeared with Active status
-    todoist_row = page.locator(".accounts-table tbody tr:has(td:text-is('Todoist'))")
+    todoist_row = page.locator(".accounts-table tbody tr").filter(has_text="Todoist")
     expect(todoist_row).to_be_visible(timeout=OAUTH_TIMEOUT_MS)
     expect(todoist_row.locator(".status-badge")).to_contain_text("Active")
