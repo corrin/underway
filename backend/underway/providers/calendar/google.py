@@ -183,8 +183,8 @@ class GoogleCalendarProvider(CalendarProvider):
 # ---------------------------------------------------------------------------
 
 
-def build_google_oauth_url(settings: Settings) -> tuple[str, str]:
-    """Return (authorization_url, state) for the Google OAuth consent screen."""
+def build_google_oauth_url(settings: Settings) -> tuple[str, str, str]:
+    """Return (authorization_url, state, code_verifier) for the Google OAuth consent screen."""
     flow = Flow.from_client_config(
         {
             "web": {
@@ -202,7 +202,10 @@ def build_google_oauth_url(settings: Settings) -> tuple[str, str]:
         prompt="consent",
         access_type="offline",
     )
-    return authorization_url, state
+    # autogenerate_code_verifier defaults to True, so code_verifier
+    # is always populated after authorization_url() is called.
+    assert flow.code_verifier is not None
+    return authorization_url, state, flow.code_verifier
 
 
 async def handle_google_oauth_callback(
@@ -211,6 +214,7 @@ async def handle_google_oauth_callback(
     settings: Settings,
     session: AsyncSession,
     user_id: UUID,
+    code_verifier: str | None = None,
 ) -> str:
     """Exchange the authorization code for tokens, store them, return the calendar email."""
     flow = Flow.from_client_config(
@@ -227,6 +231,7 @@ async def handle_google_oauth_callback(
         redirect_uri=settings.google_redirect_uri,
         state=state,
     )
+    flow.code_verifier = code_verifier
     flow.fetch_token(code=code)
     creds = flow.credentials
 
@@ -255,15 +260,19 @@ async def handle_google_oauth_callback(
             setattr(account, key, value)
         account.needs_reauth = False
         account.use_for_calendar = True
+        account.use_for_tasks = True
     else:
-        # Check if this is the first calendar account (make it primary)
-        primary = await ExternalAccount.get_primary_account(session, user_id, "calendar")
+        # Check if this is the first account for each purpose (make it writable)
+        writable_cal = await ExternalAccount.get_writable_account(session, user_id, "calendar")
+        writable_tasks = await ExternalAccount.get_writable_account(session, user_id, "tasks")
         account = ExternalAccount(
             user_id=user_id,
             external_email=google_email,
             provider="google",
             use_for_calendar=True,
-            is_primary_calendar=primary is None,
+            use_for_tasks=True,
+            write_calendar=writable_cal is None,
+            write_tasks=writable_tasks is None,
             **cred_data,
         )
         session.add(account)

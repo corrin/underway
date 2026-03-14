@@ -244,13 +244,13 @@ async def _handle_get_calendar(
     user_id: uuid.UUID,
     session: AsyncSession,
 ) -> dict[str, Any]:
-    """Retrieve calendar events from the user's primary calendar account."""
+    """Retrieve calendar events from the user's writable calendar account."""
     from datetime import datetime, timedelta
 
     from underway.models.external_account import ExternalAccount
     from underway.providers.calendar.factory import get_calendar_provider
 
-    account = await ExternalAccount.get_primary_account(session, user_id, "calendar")
+    account = await ExternalAccount.get_writable_account(session, user_id, "calendar")
     if not account:
         return {"events": [], "message": "No calendar connected."}
 

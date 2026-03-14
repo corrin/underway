@@ -5,9 +5,6 @@ import {
   fetchAccounts,
   createEvent,
   deleteEvent,
-  setPrimaryCalendar,
-  initiateGoogleOAuth,
-  initiateO365OAuth,
   type CalendarEvent,
   type ExternalAccount,
 } from '@/api/calendar'
@@ -57,26 +54,6 @@ export const useCalendarStore = defineStore('calendar', () => {
     events.value = events.value.filter((e) => e.id !== eventId)
   }
 
-  async function setPrimary(accountId: string) {
-    await setPrimaryCalendar(accountId)
-    accounts.value = accounts.value.map((a) => ({
-      ...a,
-      is_primary_calendar: a.id === accountId,
-    }))
-  }
-
-  async function connectGoogle() {
-    const { authorization_url } = await initiateGoogleOAuth()
-    window.location.href = authorization_url
-  }
-
-  async function connectO365() {
-    const { authorization_url } = await initiateO365OAuth()
-    window.location.href = authorization_url
-  }
-
-  const calendarAccounts = () => accounts.value.filter((a) => a.use_for_calendar)
-
   return {
     events,
     accounts,
@@ -86,9 +63,5 @@ export const useCalendarStore = defineStore('calendar', () => {
     loadAccounts,
     addEvent,
     removeEvent,
-    setPrimary,
-    connectGoogle,
-    connectO365,
-    calendarAccounts,
   }
 })

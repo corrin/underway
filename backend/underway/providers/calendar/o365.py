@@ -248,14 +248,18 @@ async def handle_o365_oauth_callback(
             setattr(account, key, value)
         account.needs_reauth = False
         account.use_for_calendar = True
+        account.use_for_tasks = True
     else:
-        primary = await ExternalAccount.get_primary_account(session, user_id, "calendar")
+        writable_cal = await ExternalAccount.get_writable_account(session, user_id, "calendar")
+        writable_tasks = await ExternalAccount.get_writable_account(session, user_id, "tasks")
         account = ExternalAccount(
             user_id=user_id,
             external_email=o365_email,
             provider="o365",
             use_for_calendar=True,
-            is_primary_calendar=primary is None,
+            use_for_tasks=True,
+            write_calendar=writable_cal is None,
+            write_tasks=writable_tasks is None,
             **cred_data,
         )
         session.add(account)

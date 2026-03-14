@@ -4,6 +4,8 @@ from google.oauth2.credentials import Credentials
 
 
 class Flow:
+    code_verifier: str | None
+
     @property
     def credentials(self) -> Credentials: ...
 

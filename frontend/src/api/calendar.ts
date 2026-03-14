@@ -14,8 +14,8 @@ export interface ExternalAccount {
   id: string
   external_email: string
   provider: string
-  is_primary_calendar: boolean
-  is_primary_tasks: boolean
+  write_calendar: boolean
+  write_tasks: boolean
   use_for_calendar: boolean
   use_for_tasks: boolean
   needs_reauth: boolean
@@ -48,8 +48,15 @@ export async function deleteEvent(eventId: string): Promise<void> {
   await api.delete('/calendar/delete-event', { params: { event_id: eventId } })
 }
 
-export async function setPrimaryCalendar(accountId: string): Promise<void> {
-  await api.post('/calendar/set-primary', { account_id: accountId })
+export async function disconnectAccount(accountId: string): Promise<void> {
+  await api.delete('/calendar/disconnect-account', { params: { account_id: accountId } })
+}
+
+export async function updateAccountFlags(
+  accountId: string,
+  flags: Record<string, boolean>,
+): Promise<void> {
+  await api.patch('/calendar/account-flags', { account_id: accountId, flags })
 }
 
 export async function fetchAccounts(): Promise<ExternalAccount[]> {

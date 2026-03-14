@@ -7,6 +7,8 @@ REQUIRED_SETTINGS = [
     "jwt_secret_key",
     "google_client_id",
     "google_client_secret",
+    "todoist_client_id",
+    "todoist_client_secret",
 ]
 
 
@@ -21,6 +23,9 @@ class Settings(BaseSettings):
     o365_client_id: str = ""
     o365_client_secret: str = ""
     o365_redirect_uri: str = ""
+    todoist_client_id: str = ""
+    todoist_client_secret: str = ""
+    todoist_redirect_uri: str = ""
     base_url: str = "http://localhost:8000"
     debug: bool = False
     testing: bool = False
