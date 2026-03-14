@@ -51,14 +51,14 @@ onMounted(() => {
         <li>Most deadlines are pretty arbitrary. We believe Kanban-style priorities, focusing on what's next, work better for most people's workflows.</li>
       </ul>
 
-      <div id="g_id_signin" class="google-btn"></div>
+      <div id="g_id_signin" class="google-btn" data-automation-id="login-google-signin"></div>
 
       <div class="footer-links">
-        <RouterLink to="/about">About</RouterLink>
+        <RouterLink to="/about" data-automation-id="login-about-link">About</RouterLink>
         <span class="separator">|</span>
-        <RouterLink to="/privacy">Privacy</RouterLink>
+        <RouterLink to="/privacy" data-automation-id="login-privacy-link">Privacy</RouterLink>
         <span class="separator">|</span>
-        <RouterLink to="/terms">Terms</RouterLink>
+        <RouterLink to="/terms" data-automation-id="login-terms-link">Terms</RouterLink>
       </div>
     </div>
   </div>

@@ -12,13 +12,13 @@ useTheme()
     <header v-if="authStore.isAuthenticated()">
       <nav>
         <div class="nav-left">
-          <RouterLink to="/" class="brand">Underway</RouterLink>
-          <RouterLink to="/chat">Chat</RouterLink>
-          <RouterLink to="/tasks">Tasks</RouterLink>
+          <RouterLink to="/" class="brand" data-automation-id="nav-brand-link">Underway</RouterLink>
+          <RouterLink to="/chat" data-automation-id="nav-chat-link">Chat</RouterLink>
+          <RouterLink to="/tasks" data-automation-id="nav-tasks-link">Tasks</RouterLink>
         </div>
         <div class="nav-right">
-          <RouterLink to="/settings">Settings</RouterLink>
-          <button class="logout-btn" @click="authStore.logout()">Logout</button>
+          <RouterLink to="/settings" data-automation-id="nav-settings-link">Settings</RouterLink>
+          <button class="logout-btn" data-automation-id="nav-logout-button" @click="authStore.logout()">Logout</button>
         </div>
       </nav>
     </header>

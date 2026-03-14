@@ -23,6 +23,6 @@ onMounted(() => {
 
 <template>
   <div class="callback-page">
-    <p>Signing in...</p>
+    <p data-automation-id="auth-callback-status">Signing in...</p>
   </div>
 </template>

@@ -25,7 +25,7 @@ onMounted(() => {
       </div>
 
       <div v-else class="events-list">
-        <div v-for="event in calendar.events" :key="event.id" class="event-card">
+        <div v-for="event in calendar.events" :key="event.id" class="event-card" :data-automation-id="`calendar-event-card-${event.id}`">
           <div class="event-time">
             <span class="event-date">{{ formatDate(event.start) }}</span>
             <span class="event-hours">{{ formatTime(event.start) }} - {{ formatTime(event.end) }}</span>

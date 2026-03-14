@@ -20,15 +20,15 @@ const renderedContent = computed(() => {
 </script>
 
 <template>
-  <div class="chat-message" :class="[`chat-message--${role}`]">
-    <div v-if="role === 'tool'" class="chat-message__tool">
+  <div class="chat-message" :class="[`chat-message--${role}`]" data-automation-id="chat-message">
+    <div v-if="role === 'tool'" class="chat-message__tool" data-automation-id="chat-message-tool-output">
       <details>
         <summary>Tool output</summary>
         <pre class="chat-message__pre">{{ content }}</pre>
       </details>
     </div>
     <div v-else class="chat-message__content" v-html="renderedContent" />
-    <div v-if="toolCalls && toolCalls.length > 0" class="chat-message__tool-calls">
+    <div v-if="toolCalls && toolCalls.length > 0" class="chat-message__tool-calls" data-automation-id="chat-message-tool-calls">
       <details>
         <summary>Tool calls ({{ toolCalls.length }})</summary>
         <pre class="chat-message__pre">{{ JSON.stringify(toolCalls, null, 2) }}</pre>

@@ -83,18 +83,20 @@ function priorityLabel(task: Record<string, unknown>) {
   <div class="chat-layout">
     <!-- Collapsible conversation sidebar -->
     <aside class="chat-sidebar chat-sidebar--left" :class="{ open: sidebarOpen }">
-      <button class="btn-new-chat" @click="store.startNewConversation()">+ New Chat</button>
+      <button class="btn-new-chat" data-automation-id="chat-new-button" @click="store.startNewConversation()">+ New Chat</button>
       <div class="conversation-list">
         <div
           v-for="conv in store.conversations"
           :key="conv.id"
           class="conversation-item"
           :class="{ active: store.currentConversation?.id === conv.id }"
+          :data-automation-id="`chat-conversation-item-${conv.id}`"
           @click="store.selectConversation(conv)"
         >
           <span class="conversation-title">{{ conv.title || 'Untitled' }}</span>
           <button
             class="conversation-delete"
+            :data-automation-id="`chat-conversation-delete-${conv.id}`"
             title="Delete conversation"
             @click.stop="store.removeConversation(conv.id)"
           >
@@ -132,7 +134,7 @@ function priorityLabel(task: Record<string, unknown>) {
       </div>
 
       <div class="chat-input-area">
-        <button class="btn-sidebar-toggle" @click="sidebarOpen = !sidebarOpen" title="Toggle conversations">
+        <button class="btn-sidebar-toggle" data-automation-id="chat-sidebar-toggle" @click="sidebarOpen = !sidebarOpen" title="Toggle conversations">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="3" y="5" width="14" height="1.5" rx="0.75" fill="currentColor"/>
             <rect x="3" y="9.25" width="14" height="1.5" rx="0.75" fill="currentColor"/>
@@ -142,6 +144,7 @@ function priorityLabel(task: Record<string, unknown>) {
         <textarea
           v-model="inputText"
           class="chat-input"
+          data-automation-id="chat-message-input"
           placeholder="Type a message..."
           rows="1"
           :disabled="store.isStreaming"
@@ -149,6 +152,7 @@ function priorityLabel(task: Record<string, unknown>) {
         />
         <button
           class="btn-send"
+          data-automation-id="chat-send-button"
           :disabled="!inputText.trim() || store.isStreaming"
           @click="handleSend"
           title="Send message"

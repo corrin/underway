@@ -19,7 +19,7 @@ import { RouterLink } from 'vue-router'
       <p>If you have any questions about these terms and conditions, please contact us at <a href="mailto:lakeland@gmail.com">lakeland@gmail.com</a>.</p>
 
       <div class="text-center mt-lg">
-        <RouterLink to="/login" class="back-link">&larr; Back to Login</RouterLink>
+        <RouterLink to="/login" class="back-link" data-automation-id="terms-back-link">&larr; Back to Login</RouterLink>
       </div>
     </div>
   </div>

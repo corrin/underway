@@ -47,12 +47,12 @@ const isAuthenticated = computed(() => authStore.isAuthenticated())
       <p>Underway is currently free. No credit card needed. If that changes, we'll let you know well in advance.</p>
 
       <div class="text-center mt-lg">
-        <RouterLink v-if="isAuthenticated" to="/chat" class="btn btn-primary">Go to Chat</RouterLink>
-        <RouterLink v-else to="/login" class="btn btn-primary">Get Started</RouterLink>
+        <RouterLink v-if="isAuthenticated" to="/chat" class="btn btn-primary" data-automation-id="about-cta-button">Go to Chat</RouterLink>
+        <RouterLink v-else to="/login" class="btn btn-primary" data-automation-id="about-cta-button">Get Started</RouterLink>
       </div>
 
       <div class="text-center mt-sm">
-        <RouterLink to="/login" class="back-link">&larr; Back to Login</RouterLink>
+        <RouterLink to="/login" class="back-link" data-automation-id="about-back-link">&larr; Back to Login</RouterLink>
       </div>
     </div>
   </div>
