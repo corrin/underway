@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import api from '@/api/client'
+import { useTheme } from '@/composables/useTheme'
+
+const { theme, setTheme } = useTheme()
 
 interface Settings {
   ai_api_key: string | null
@@ -62,6 +65,24 @@ onMounted(() => {
 <template>
   <div class="settings-page">
     <h1>Settings</h1>
+
+    <section class="appearance-section">
+      <h2>Appearance</h2>
+      <div class="theme-options">
+        <label class="theme-option">
+          <input type="radio" name="theme" value="light" :checked="theme === 'light'" @change="setTheme('light')" />
+          Light
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="dark" :checked="theme === 'dark'" @change="setTheme('dark')" />
+          Dark
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="auto" :checked="theme === 'auto'" @change="setTheme('auto')" />
+          Auto (system default)
+        </label>
+      </div>
+    </section>
 
     <form class="settings-form" @submit.prevent="saveSettings">
       <div class="field">
@@ -125,6 +146,24 @@ onMounted(() => {
 
 h1 {
   margin-bottom: 1.5rem;
+}
+
+.appearance-section {
+  margin-bottom: 2rem;
+}
+
+.theme-options {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.95rem;
 }
 
 h2 {
