@@ -3,6 +3,8 @@
 import pytest
 from playwright.sync_api import Page
 
+from conftest import aid
+
 
 @pytest.mark.e2e
 def test_frontend_loads(base_url: str, page: Page) -> None:

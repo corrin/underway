@@ -16,8 +16,8 @@ class ExternalAccountSerializer(ModelSerializer):
 
     external_email = CharField(read_only=True)
     provider = CharField(read_only=True)
-    is_primary_calendar = BooleanField(read_only=True)
-    is_primary_tasks = BooleanField(read_only=True)
+    write_calendar = BooleanField(read_only=True)
+    write_tasks = BooleanField(read_only=True)
     use_for_calendar = BooleanField(read_only=True)
     use_for_tasks = BooleanField(read_only=True)
     needs_reauth = BooleanField(read_only=True)
@@ -30,8 +30,8 @@ class ExternalAccountSerializer(ModelSerializer):
             "external_email",
             "provider",
             "user_id",
-            "is_primary_calendar",
-            "is_primary_tasks",
+            "write_calendar",
+            "write_tasks",
             "use_for_calendar",
             "use_for_tasks",
             "needs_reauth",

@@ -72,6 +72,3 @@ select = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-strict_markers = true
-markers = ["e2e: end-to-end tests requiring browser"]
-addopts = "-m 'not e2e'"
