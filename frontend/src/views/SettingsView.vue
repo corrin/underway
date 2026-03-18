@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api/client'
 import { useTheme } from '@/composables/useTheme'
@@ -261,6 +261,7 @@ onMounted(() => {
                   v-if="account.provider !== 'todoist'"
                   type="checkbox"
                   :data-automation-id="`settings-account-read-events-${account.id}`"
+                  :aria-label="`Read events for ${account.external_email}`"
                   :checked="account.use_for_calendar"
                   @change="toggleFlag(account, 'use_for_calendar', !account.use_for_calendar)"
                 />
@@ -270,6 +271,7 @@ onMounted(() => {
                   v-if="account.provider !== 'todoist'"
                   type="checkbox"
                   :data-automation-id="`settings-account-write-events-${account.id}`"
+                  :aria-label="`Write events for ${account.external_email}`"
                   :checked="account.write_calendar"
                   :disabled="!account.use_for_calendar"
                   @change="toggleFlag(account, 'write_calendar', !account.write_calendar)"
@@ -279,6 +281,7 @@ onMounted(() => {
                 <input
                   type="checkbox"
                   :data-automation-id="`settings-account-read-tasks-${account.id}`"
+                  :aria-label="`Read tasks for ${account.external_email}`"
                   :checked="account.use_for_tasks"
                   @change="toggleFlag(account, 'use_for_tasks', !account.use_for_tasks)"
                 />
@@ -287,6 +290,7 @@ onMounted(() => {
                 <input
                   type="checkbox"
                   :data-automation-id="`settings-account-write-tasks-${account.id}`"
+                  :aria-label="`Write tasks for ${account.external_email}`"
                   :checked="account.write_tasks"
                   :disabled="!account.use_for_tasks"
                   @change="toggleFlag(account, 'write_tasks', !account.write_tasks)"

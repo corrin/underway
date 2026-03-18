@@ -22,6 +22,7 @@ from conftest import OAUTH_TIMEOUT_MS, aid
 # ---------------------------------------------------------------------------
 
 GOOGLE_TEST_EMAIL = os.environ.get("GOOGLE_TEST_EMAIL", "")
+GOOGLE_TEST_EMAIL_2 = os.environ.get("GOOGLE_TEST_EMAIL_2", "")
 GOOGLE_TEST_PASSWORD = os.environ.get("GOOGLE_TEST_PASSWORD", "")
 O365_TEST_EMAIL = os.environ.get("O365_TEST_EMAIL", "")
 O365_TEST_PASSWORD = os.environ.get("O365_TEST_PASSWORD", "")
@@ -200,7 +201,7 @@ def test_add_google_account_lakeland(
         pytest.skip("GOOGLE_TEST_PASSWORD not set in backend/.env")
 
     page = authenticated_page
-    email = "lakeland@gmail.com"
+    email = GOOGLE_TEST_EMAIL or "lakeland@gmail.com"
 
     page.goto(f"{base_url}/settings")
     page.locator("h1").wait_for(state="visible")
@@ -223,7 +224,7 @@ def test_add_google_account_morris(
         pytest.skip("GOOGLE_TEST_PASSWORD not set in backend/.env")
 
     page = authenticated_page
-    email = "corrin@morrissheetmetal.co.nz"
+    email = GOOGLE_TEST_EMAIL_2 or "corrin@morrissheetmetal.co.nz"
 
     page.goto(f"{base_url}/settings")
     page.locator("h1").wait_for(state="visible")

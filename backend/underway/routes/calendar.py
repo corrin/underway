@@ -27,6 +27,7 @@ async def list_events(request: Request) -> dict[str, object]:
     end_str = request.query_params.get("end")
 
     now = datetime.now(UTC)
+    # fromisoformat handles "Z" suffix natively in Python 3.11+ (we require 3.12)
     start = datetime.fromisoformat(start_str) if start_str else now
     end = datetime.fromisoformat(end_str) if end_str else now + timedelta(days=7)
 
@@ -121,7 +122,6 @@ async def disconnect_account(request: Request) -> dict[str, str]:
         raise HTTPException(status_code=404, detail="Account not found.")
 
     await session.delete(account)
-    await session.commit()
 
     return {"status": "ok", "message": f"{account.external_email} disconnected."}
 

@@ -35,6 +35,13 @@ class Settings(BaseSettings):
 
     playwright_chrome_profile: str = ""
 
+    # E2E test credentials — only used by Playwright tests, not by the app.
+    google_test_email: str = ""
+    google_test_password: str = ""
+    o365_test_email: str = ""
+    o365_test_password: str = ""
+    todoist_test_email: str = ""
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
     def validate_required(self) -> None:

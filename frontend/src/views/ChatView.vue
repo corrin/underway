@@ -295,8 +295,8 @@ function priorityLabel(task: Record<string, unknown>) {
 }
 
 .conversation-item.active {
-  background: #dbeafe;
-  color: #1e40af;
+  background: var(--color-active-bg);
+  color: var(--color-active-text);
 }
 
 .conversation-title {
@@ -318,7 +318,7 @@ function priorityLabel(task: Record<string, unknown>) {
 
 .conversation-delete:hover {
   opacity: 1;
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 /* Chat main area */
@@ -332,8 +332,8 @@ function priorityLabel(task: Record<string, unknown>) {
 
 .chat-error {
   padding: 0.5rem 1rem;
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
   font-size: 0.85rem;
 }
 
@@ -393,8 +393,8 @@ function priorityLabel(task: Record<string, unknown>) {
 
 .chat-input:focus {
   outline: none;
-  border-color: #86b7fe;
-  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.25rem var(--color-focus-ring);
 }
 
 .btn-send {
@@ -402,7 +402,7 @@ function priorityLabel(task: Record<string, unknown>) {
   height: 40px;
   min-width: 40px;
   border-radius: 50%;
-  background: #0d6efd;
+  background: var(--color-primary);
   color: #fff;
   border: none;
   cursor: pointer;
@@ -412,7 +412,7 @@ function priorityLabel(task: Record<string, unknown>) {
 }
 
 .btn-send:hover {
-  background: #0b5ed7;
+  background: var(--color-primary-hover);
 }
 
 .btn-send:disabled {
@@ -430,7 +430,7 @@ function priorityLabel(task: Record<string, unknown>) {
   font-size: 0.9rem;
   font-weight: 600;
   padding-bottom: 0.4rem;
-  border-bottom: 2px solid #dee2e6;
+  border-bottom: 2px solid var(--color-border);
 }
 
 .dashboard-cards {
@@ -440,16 +440,16 @@ function priorityLabel(task: Record<string, unknown>) {
 }
 
 .event-card {
-  background: #fff;
-  border-left: 4px solid #0d6efd;
+  background: var(--color-surface);
+  border-left: 4px solid var(--color-primary);
   border-radius: 0.25rem;
   padding: 0.5rem 0.75rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px var(--color-surface-shadow);
 }
 
 .event-time {
   font-size: 0.75rem;
-  color: #6c757d;
+  color: var(--color-text-muted);
   margin-bottom: 0.15rem;
 }
 
@@ -460,15 +460,15 @@ function priorityLabel(task: Record<string, unknown>) {
 
 .event-location {
   font-size: 0.75rem;
-  color: #6c757d;
+  color: var(--color-text-muted);
   margin-top: 0.15rem;
 }
 
 .task-card {
-  background: #fff;
+  background: var(--color-surface);
   border-radius: 0.25rem;
   padding: 0.5rem 0.75rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px var(--color-surface-shadow);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -482,6 +482,9 @@ function priorityLabel(task: Record<string, unknown>) {
   white-space: nowrap;
 }
 
+/* Priority badges use hard-coded colors intentionally — they are semantic
+   status indicators (red/orange/yellow/grey) that must stay fixed in both
+   light and dark themes for consistent visual meaning. */
 .priority-badge {
   font-size: 0.7rem;
   font-weight: 700;

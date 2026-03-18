@@ -45,27 +45,29 @@ const renderedContent = computed(() => {
 }
 
 .chat-message--user {
-  background: #0d6efd;
+  background: var(--color-primary);
   color: #fff;
   align-self: flex-end;
   border-bottom-right-radius: 0.25rem;
 }
 
 .chat-message--assistant {
-  background: #e9ecef;
-  color: #212529;
+  background: var(--color-background-mute);
+  color: var(--color-text);
   align-self: flex-start;
   border-bottom-left-radius: 0.25rem;
 }
 
 .chat-message--tool {
-  background: #f0fdf4;
-  color: #14532d;
+  background: var(--color-background-soft);
+  color: var(--color-text);
   align-self: flex-start;
   font-size: 0.85rem;
 }
 
-/* White text overrides for user messages */
+/* User message overrides use hard-coded colors intentionally — they are
+   relative to the blue bubble background, not the page theme. These stay
+   fixed in both light and dark modes. */
 .chat-message--user :deep(a) {
   color: #cfe2ff;
   text-decoration: underline;
@@ -85,7 +87,7 @@ const renderedContent = computed(() => {
 }
 
 .chat-message__content :deep(pre) {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--color-surface-shadow);
   padding: 0.5rem;
   border-radius: 4px;
   overflow-x: auto;
@@ -109,7 +111,7 @@ const renderedContent = computed(() => {
 }
 
 .chat-message__content :deep(th) {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--color-surface-shadow);
   font-weight: 600;
 }
 
@@ -118,7 +120,7 @@ const renderedContent = computed(() => {
   word-break: break-word;
   font-size: 0.8rem;
   margin: 0.5rem 0 0;
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--color-surface-shadow);
   padding: 0.5rem;
   border-radius: 4px;
 }
