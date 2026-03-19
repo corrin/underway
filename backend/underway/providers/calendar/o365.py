@@ -274,15 +274,19 @@ async def _refresh_o365_token(account: ExternalAccount) -> bool:
     if not account.refresh_token:
         return False
 
+    if not account.client_id or not account.client_secret or not account.scopes:
+        msg = f"Account {account.external_email} missing OAuth credentials — cannot refresh token"
+        raise ValueError(msg)
+
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             "https://login.microsoftonline.com/common/oauth2/v2.0/token",
             data={
                 "grant_type": "refresh_token",
                 "refresh_token": account.refresh_token,
-                "client_id": account.client_id or "",
-                "client_secret": account.client_secret or "",
-                "scope": account.scopes or "",
+                "client_id": account.client_id,
+                "client_secret": account.client_secret,
+                "scope": account.scopes,
             },
         )
 

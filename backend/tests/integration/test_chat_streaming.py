@@ -27,7 +27,7 @@ async def _create_user(
     db_session: AsyncSession,
     email: str = "chat@example.com",
     ai_api_key: str = "test-key",
-    llm_model: str = "gpt-4o",
+    llm_model: str = "claude-sonnet-4-6",
 ) -> User:
     user = User(app_login=email, ai_api_key=ai_api_key, llm_model=llm_model)
     user.id = uuid.uuid4()

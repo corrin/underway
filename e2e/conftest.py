@@ -38,6 +38,9 @@ CHROME_PROFILE_DIR = os.environ.get("PLAYWRIGHT_CHROME_PROFILE", "")
 # Base URL for the app — must go through ngrok, never localhost.
 BASE_URL = os.environ.get("BASE_URL", "")
 
+# Google test account email — used for OAuth login in authenticated fixtures.
+GOOGLE_TEST_EMAIL = os.environ.get("GOOGLE_TEST_EMAIL", "")
+
 # Trace output directory
 TRACE_DIR = Path("/tmp/e2e-results")
 
@@ -51,7 +54,7 @@ def aid(value: str) -> str:
 def base_url() -> str:
     """App base URL (ngrok)."""
     if not BASE_URL:
-        pytest.skip("BASE_URL is not set in backend/.env")
+        pytest.fail("BASE_URL is not set in backend/.env")
     return BASE_URL
 
 
@@ -70,7 +73,9 @@ def authenticated_context(
     system Chrome ("Browser window not found").
     """
     if not CHROME_PROFILE_DIR:
-        pytest.skip("PLAYWRIGHT_CHROME_PROFILE is not set in backend/.env")
+        pytest.fail("PLAYWRIGHT_CHROME_PROFILE is not set in backend/.env")
+    if not GOOGLE_TEST_EMAIL:
+        pytest.fail("GOOGLE_TEST_EMAIL is not set in backend/.env")
 
     chrome_bin = shutil.which("google-chrome") or shutil.which("google-chrome-stable")
     if not chrome_bin:
@@ -137,7 +142,7 @@ def authenticated_context(
             gsi_button.click()
 
         # Now on Google's account chooser. Select the target account.
-        account_item = page.locator("text=lakeland@gmail.com")
+        account_item = page.locator(f"text={GOOGLE_TEST_EMAIL}")
         account_item.wait_for(state="visible", timeout=OAUTH_TIMEOUT_MS)
 
         with page.expect_navigation(wait_until="commit", timeout=OAUTH_TIMEOUT_MS):

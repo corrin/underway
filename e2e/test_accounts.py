@@ -197,11 +197,11 @@ def test_add_google_account_lakeland(
     base_url: str, authenticated_page: Page
 ) -> None:
     """Connect Google account lakeland@gmail.com via OAuth."""
-    if not GOOGLE_TEST_PASSWORD:
-        pytest.skip("GOOGLE_TEST_PASSWORD not set in backend/.env")
+    if not GOOGLE_TEST_EMAIL or not GOOGLE_TEST_PASSWORD:
+        pytest.fail("GOOGLE_TEST_EMAIL and GOOGLE_TEST_PASSWORD must be set in backend/.env")
 
     page = authenticated_page
-    email = GOOGLE_TEST_EMAIL or "lakeland@gmail.com"
+    email = GOOGLE_TEST_EMAIL
 
     page.goto(f"{base_url}/settings")
     page.locator("h1").wait_for(state="visible")
@@ -220,11 +220,11 @@ def test_add_google_account_morris(
     base_url: str, authenticated_page: Page
 ) -> None:
     """Connect Google account corrin@morrissheetmetal.co.nz via OAuth."""
-    if not GOOGLE_TEST_PASSWORD:
-        pytest.skip("GOOGLE_TEST_PASSWORD not set in backend/.env")
+    if not GOOGLE_TEST_EMAIL_2 or not GOOGLE_TEST_PASSWORD:
+        pytest.fail("GOOGLE_TEST_EMAIL_2 and GOOGLE_TEST_PASSWORD must be set in backend/.env")
 
     page = authenticated_page
-    email = GOOGLE_TEST_EMAIL_2 or "corrin@morrissheetmetal.co.nz"
+    email = GOOGLE_TEST_EMAIL_2
 
     page.goto(f"{base_url}/settings")
     page.locator("h1").wait_for(state="visible")
@@ -248,11 +248,11 @@ def test_add_o365_account(
     base_url: str, authenticated_page: Page
 ) -> None:
     """Connect O365 account corrin.lakeland@cmeconnect.com via OAuth."""
-    if not O365_TEST_PASSWORD:
-        pytest.skip("O365_TEST_PASSWORD not set in backend/.env")
+    if not O365_TEST_EMAIL or not O365_TEST_PASSWORD:
+        pytest.fail("O365_TEST_EMAIL and O365_TEST_PASSWORD must be set in backend/.env")
 
     page = authenticated_page
-    email = O365_TEST_EMAIL or "corrin.lakeland@cmeconnect.com"
+    email = O365_TEST_EMAIL
 
     page.goto(f"{base_url}/settings")
     page.locator("h1").wait_for(state="visible")
@@ -276,11 +276,11 @@ def test_add_todoist_account(
     base_url: str, authenticated_page: Page
 ) -> None:
     """Connect Todoist account via OAuth (signs in with Google)."""
-    if not GOOGLE_TEST_PASSWORD:
-        pytest.skip("GOOGLE_TEST_PASSWORD not set in backend/.env")
+    if not TODOIST_TEST_EMAIL or not GOOGLE_TEST_PASSWORD:
+        pytest.fail("TODOIST_TEST_EMAIL and GOOGLE_TEST_PASSWORD must be set in backend/.env")
 
     page = authenticated_page
-    todoist_email = TODOIST_TEST_EMAIL or "lakeland@gmail.com"
+    todoist_email = TODOIST_TEST_EMAIL
 
     page.goto(f"{base_url}/settings")
     page.locator("h1").wait_for(state="visible")

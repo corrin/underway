@@ -19,6 +19,7 @@ async def testing_client(
     settings = Settings(
         database_url=test_settings.database_url,
         jwt_secret_key=test_settings.jwt_secret_key,
+        base_url=test_settings.base_url,
         testing=True,
     )
     app = create_app(settings=settings, session_factory=db_session_factory)

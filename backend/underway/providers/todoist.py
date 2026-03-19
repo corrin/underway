@@ -131,7 +131,10 @@ class TodoistProvider(TaskProvider):
         if not task:
             raise ValueError(f"Task {task_id} not found")
 
-        api = await self._get_api(session, user_id, task.task_user_email or "")
+        if not task.task_user_email:
+            msg = f"Task {task_id} has no task_user_email — cannot resolve Todoist account"
+            raise ValueError(msg)
+        api = await self._get_api(session, user_id, task.task_user_email)
         if not api:
             msg = f"Todoist API not initialized for user_id={user_id}"
             raise RuntimeError(msg)
@@ -165,7 +168,10 @@ class TodoistProvider(TaskProvider):
         if not task:
             raise ValueError(f"Task {task_id} not found")
 
-        api = await self._get_api(session, user_id, task.task_user_email or "")
+        if not task.task_user_email:
+            msg = f"Task {task_id} has no task_user_email — cannot resolve Todoist account"
+            raise ValueError(msg)
+        api = await self._get_api(session, user_id, task.task_user_email)
         if not api:
             msg = f"Todoist API not initialized for user_id={user_id}"
             raise RuntimeError(msg)

@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings
 REQUIRED_SETTINGS = [
     "database_url",
     "jwt_secret_key",
+    "base_url",
     "google_client_id",
     "google_client_secret",
     "todoist_client_id",
@@ -15,8 +16,8 @@ REQUIRED_SETTINGS = [
 class Settings(BaseSettings):
     """Application configuration. Values loaded from .env file or environment."""
 
-    database_url: str = "mysql+aiomysql://underway:underway-dev-pass@localhost:3306/underway_dev"
-    jwt_secret_key: str = "change-me-in-production"
+    database_url: str
+    jwt_secret_key: str
     google_client_id: str = ""
     google_client_secret: str = ""
     google_redirect_uri: str = ""
@@ -26,7 +27,7 @@ class Settings(BaseSettings):
     todoist_client_id: str = ""
     todoist_client_secret: str = ""
     todoist_redirect_uri: str = ""
-    base_url: str = "http://localhost:8000"
+    base_url: str
     debug: bool = False
     testing: bool = False
 

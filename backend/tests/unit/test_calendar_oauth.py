@@ -8,11 +8,15 @@ class TestGoogleOAuthUrl:
         from underway.providers.calendar.google import build_google_oauth_url
 
         settings = Settings(
+            _env_file=None,
+            database_url="mysql+aiomysql://x:x@localhost/x",
+            jwt_secret_key="test-secret-key-at-least-32-chars!",
+            base_url="http://test",
             google_client_id="test-client-id",
             google_client_secret="test-secret",
             google_redirect_uri="http://localhost:8000/api/oauth/google/callback",
         )
-        url, state = build_google_oauth_url(settings)
+        url, state, _verifier = build_google_oauth_url(settings)
         assert "accounts.google.com" in url
         assert "test-client-id" in url
         assert state  # non-empty
@@ -21,11 +25,15 @@ class TestGoogleOAuthUrl:
         from underway.providers.calendar.google import build_google_oauth_url
 
         settings = Settings(
+            _env_file=None,
+            database_url="mysql+aiomysql://x:x@localhost/x",
+            jwt_secret_key="test-secret-key-at-least-32-chars!",
+            base_url="http://test",
             google_client_id="test-id",
             google_client_secret="test-secret",
             google_redirect_uri="http://localhost:8000/api/oauth/google/callback",
         )
-        url, _ = build_google_oauth_url(settings)
+        url, _, _verifier = build_google_oauth_url(settings)
         assert "calendar" in url
 
 
@@ -34,6 +42,10 @@ class TestO365OAuthUrl:
         from underway.providers.calendar.o365 import build_o365_oauth_url
 
         settings = Settings(
+            _env_file=None,
+            database_url="mysql+aiomysql://x:x@localhost/x",
+            jwt_secret_key="test-secret-key-at-least-32-chars!",
+            base_url="http://test",
             o365_client_id="test-o365-id",
             o365_client_secret="test-secret",
             o365_redirect_uri="http://localhost:8000/api/oauth/o365/callback",
@@ -47,6 +59,10 @@ class TestO365OAuthUrl:
         from underway.providers.calendar.o365 import build_o365_oauth_url
 
         settings = Settings(
+            _env_file=None,
+            database_url="mysql+aiomysql://x:x@localhost/x",
+            jwt_secret_key="test-secret-key-at-least-32-chars!",
+            base_url="http://test",
             o365_client_id="test-id",
             o365_client_secret="test-secret",
             o365_redirect_uri="http://localhost:8000/callback",
