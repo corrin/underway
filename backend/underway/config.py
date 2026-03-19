@@ -1,9 +1,11 @@
 """Application settings loaded from environment variables."""
 
+from functools import cached_property
+
 from pydantic_settings import BaseSettings
 
 REQUIRED_SETTINGS = [
-    "database_url",
+    "database_password",
     "jwt_secret_key",
     "base_url",
     "google_client_id",
@@ -16,7 +18,11 @@ REQUIRED_SETTINGS = [
 class Settings(BaseSettings):
     """Application configuration. Values loaded from .env file or environment."""
 
-    database_url: str
+    database_host: str = "localhost"
+    database_port: int = 3306
+    database_user: str = "underway"
+    database_password: str
+    database_name: str = "underway_dev"
     jwt_secret_key: str
     google_client_id: str = ""
     google_client_secret: str = ""
@@ -44,6 +50,14 @@ class Settings(BaseSettings):
     todoist_test_email: str = ""
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+
+    @cached_property
+    def database_url(self) -> str:
+        """Build the async database URL from individual fields."""
+        return (
+            f"mysql+aiomysql://{self.database_user}:{self.database_password}"
+            f"@{self.database_host}:{self.database_port}/{self.database_name}"
+        )
 
     def validate_required(self) -> None:
         """Raise if any required settings are missing."""

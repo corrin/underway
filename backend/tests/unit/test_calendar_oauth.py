@@ -9,7 +9,7 @@ class TestGoogleOAuthUrl:
 
         settings = Settings(
             _env_file=None,
-            database_url="mysql+aiomysql://x:x@localhost/x",
+            database_password="x",
             jwt_secret_key="test-secret-key-at-least-32-chars!",
             base_url="http://test",
             google_client_id="test-client-id",
@@ -26,7 +26,7 @@ class TestGoogleOAuthUrl:
 
         settings = Settings(
             _env_file=None,
-            database_url="mysql+aiomysql://x:x@localhost/x",
+            database_password="x",
             jwt_secret_key="test-secret-key-at-least-32-chars!",
             base_url="http://test",
             google_client_id="test-id",
@@ -43,7 +43,7 @@ class TestO365OAuthUrl:
 
         settings = Settings(
             _env_file=None,
-            database_url="mysql+aiomysql://x:x@localhost/x",
+            database_password="x",
             jwt_secret_key="test-secret-key-at-least-32-chars!",
             base_url="http://test",
             o365_client_id="test-o365-id",
@@ -60,7 +60,7 @@ class TestO365OAuthUrl:
 
         settings = Settings(
             _env_file=None,
-            database_url="mysql+aiomysql://x:x@localhost/x",
+            database_password="x",
             jwt_secret_key="test-secret-key-at-least-32-chars!",
             base_url="http://test",
             o365_client_id="test-id",

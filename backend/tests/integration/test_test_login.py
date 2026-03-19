@@ -11,16 +11,22 @@ from underway.config import Settings, get_settings
 
 
 @pytest.fixture
-async def testing_client(
+async def production_client(
     test_settings: Settings,
     db_session_factory: async_sessionmaker[AsyncSession],
 ) -> AsyncGenerator[AsyncClient, None]:
-    """Client with testing=True so test-login route exists."""
+    """Client with testing=False and all required settings for validate_required()."""
     settings = Settings(
-        database_url=test_settings.database_url,
+        _env_file=None,
+        database_password=test_settings.database_password,
+        database_name=test_settings.database_name,
         jwt_secret_key=test_settings.jwt_secret_key,
         base_url=test_settings.base_url,
-        testing=True,
+        testing=False,
+        google_client_id="fake-google-id",
+        google_client_secret="fake-google-secret",
+        todoist_client_id="fake-todoist-id",
+        todoist_client_secret="fake-todoist-secret",
     )
     app = create_app(settings=settings, session_factory=db_session_factory)
     app.dependency_overrides[get_settings] = lambda: settings
@@ -30,21 +36,21 @@ async def testing_client(
 
 
 class TestTestLogin:
-    async def test_creates_user_and_returns_token(self, testing_client: AsyncClient) -> None:
-        response = await testing_client.post("/api/auth/test-login", json={"email": "playwright@test.com"})
+    async def test_creates_user_and_returns_token(self, client: AsyncClient) -> None:
+        response = await client.post("/api/auth/test-login", json={"email": "playwright@test.com"})
         assert response.status_code == 200
         data = response.json()
         assert "token" in data
         assert data["user"]["email"] == "playwright@test.com"
 
-    async def test_token_works_for_auth(self, testing_client: AsyncClient) -> None:
-        login_resp = await testing_client.post("/api/auth/test-login", json={"email": "auth-check@test.com"})
+    async def test_token_works_for_auth(self, client: AsyncClient) -> None:
+        login_resp = await client.post("/api/auth/test-login", json={"email": "auth-check@test.com"})
         token = login_resp.json()["token"]
-        me_resp = await testing_client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+        me_resp = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
         assert me_resp.status_code == 200
         assert me_resp.json()["email"] == "auth-check@test.com"
 
-    async def test_route_absent_in_production(self, client: AsyncClient) -> None:
-        """The regular client fixture has testing=False — route should 404."""
-        response = await client.post("/api/auth/test-login", json={"email": "hacker@evil.com"})
+    async def test_route_absent_in_production(self, production_client: AsyncClient) -> None:
+        """Production client has testing=False — route should 404."""
+        response = await production_client.post("/api/auth/test-login", json={"email": "hacker@evil.com"})
         assert response.status_code == 404

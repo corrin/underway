@@ -56,7 +56,9 @@ jobs:
       - name: pytest
         run: poetry run pytest -v
         env:
-          TEST_DATABASE_URL: mysql+aiomysql://underway:underway-ci-pass@127.0.0.1:3306/underway_test
+          DATABASE_HOST: "127.0.0.1"
+          DATABASE_PASSWORD: underway-ci-pass
+          DATABASE_NAME: underway_dev
           JWT_SECRET_KEY: test-secret
 
   frontend:
