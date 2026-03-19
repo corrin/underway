@@ -30,10 +30,11 @@ function priorityClass(priority: number | null): string {
 </script>
 
 <template>
-  <div class="task-card" :class="{ completed: props.task.status === 'completed' }">
+  <div class="task-card" :class="{ completed: props.task.status === 'completed' }" :data-automation-id="`task-card-${props.task.id}`">
     <div class="task-main">
       <button
         class="status-toggle"
+        :data-automation-id="`task-card-toggle-${props.task.id}`"
         :title="props.task.status === 'completed' ? 'Mark active' : 'Mark completed'"
         @click.stop="emit('toggleStatus', props.task)"
       >
@@ -41,7 +42,7 @@ function priorityClass(priority: number | null): string {
         <span v-else class="circle"></span>
       </button>
       <div class="task-content">
-        <span class="task-title">{{ props.task.title }}</span>
+        <span class="task-title" :data-automation-id="`task-card-title-${props.task.id}`">{{ props.task.title }}</span>
         <div class="task-meta">
           <span v-if="props.task.due_date" class="due-date">{{ formatDate(props.task.due_date) }}</span>
           <span v-if="props.task.priority" class="priority-badge" :class="priorityClass(props.task.priority)">
@@ -52,7 +53,7 @@ function priorityClass(priority: number | null): string {
         </div>
       </div>
     </div>
-    <button class="delete-btn" title="Delete task" @click.stop="emit('delete', props.task)">&#215;</button>
+    <button class="delete-btn" :data-automation-id="`task-card-delete-${props.task.id}`" title="Delete task" @click.stop="emit('delete', props.task)">&#215;</button>
   </div>
 </template>
 

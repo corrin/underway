@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, Text, and_, or_, select, update
+from sqlalchemy import ForeignKey, String, Text, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -46,8 +46,8 @@ class ExternalAccount(Base):
     client_secret: Mapped[str | None] = mapped_column(String(255), default=None)
     scopes: Mapped[str | None] = mapped_column(Text, default=None)
 
-    is_primary_calendar: Mapped[bool] = mapped_column(default=False)
-    is_primary_tasks: Mapped[bool] = mapped_column(default=False)
+    write_calendar: Mapped[bool] = mapped_column(default=False)
+    write_tasks: Mapped[bool] = mapped_column(default=False)
     use_for_calendar: Mapped[bool] = mapped_column(default=False)
     use_for_tasks: Mapped[bool] = mapped_column(default=False)
     needs_reauth: Mapped[bool] = mapped_column(default=False)
@@ -72,46 +72,16 @@ class ExternalAccount(Base):
         return list(result.scalars().all())
 
     @classmethod
-    async def set_as_primary(
-        cls,
-        session: AsyncSession,
-        external_email: str,
-        provider: str,
-        user_id: uuid.UUID,
-        account_type: str,
-    ) -> None:
-        if account_type not in ("calendar", "tasks"):
-            raise ValueError("account_type must be 'calendar' or 'tasks'")
-
-        result = await session.execute(
-            select(cls).where(
-                cls.external_email == external_email,
-                cls.provider == provider,
-                cls.user_id == user_id,
-            )
-        )
-        account = result.scalar_one_or_none()
-        if not account:
-            raise ValueError("Account not found")
-
-        if account_type == "calendar":
-            await session.execute(update(cls).where(cls.user_id == user_id).values(is_primary_calendar=False))
-            account.is_primary_calendar = True
-        else:
-            await session.execute(update(cls).where(cls.user_id == user_id).values(is_primary_tasks=False))
-            account.is_primary_tasks = True
-
-    @classmethod
-    async def get_primary_account(
+    async def get_writable_account(
         cls, session: AsyncSession, user_id: uuid.UUID, account_type: str
     ) -> ExternalAccount | None:
         if account_type not in ("calendar", "tasks"):
             raise ValueError("account_type must be 'calendar' or 'tasks'")
 
         if account_type == "calendar":
-            stmt = select(cls).where(cls.user_id == user_id, cls.is_primary_calendar.is_(True))
+            stmt = select(cls).where(cls.user_id == user_id, cls.write_calendar.is_(True))
         else:
-            stmt = select(cls).where(cls.user_id == user_id, cls.is_primary_tasks.is_(True))
+            stmt = select(cls).where(cls.user_id == user_id, cls.write_tasks.is_(True))
 
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
@@ -125,10 +95,7 @@ class ExternalAccount(Base):
                 cls.user_id == user_id,
                 cls.use_for_tasks.is_(True),
                 cls.needs_reauth.is_(False),
-                or_(
-                    and_(cls.provider == "todoist", cls.api_key.is_not(None)),
-                    and_(cls.provider.in_(["google", "o365"]), cls.token.is_not(None)),
-                ),
+                cls.token.is_not(None),
             )
             .order_by(cls.provider, cls.external_email)
         )
@@ -156,6 +123,47 @@ class ExternalAccount(Base):
             )
         )
         return result.scalar_one_or_none()
+
+    async def disconnect(self, purpose: str, session: AsyncSession) -> None:
+        """Disconnect this account from a purpose (calendar or tasks).
+
+        Soft delete: if still used for the other purpose, clear the flag.
+        Hard delete: if no longer used for either purpose, delete the row.
+        Auto-reassign primary if this was the primary account.
+        """
+        if purpose not in ("calendar", "tasks"):
+            raise ValueError("purpose must be 'calendar' or 'tasks'")
+
+        was_writable = False
+        if purpose == "calendar":
+            was_writable = self.write_calendar
+            self.use_for_calendar = False
+            self.write_calendar = False
+        else:
+            was_writable = self.write_tasks
+            self.use_for_tasks = False
+            self.write_tasks = False
+
+        if not self.use_for_calendar and not self.use_for_tasks:
+            await session.delete(self)
+            await session.flush()
+        else:
+            await session.flush()
+
+        if was_writable:
+            write_col = "write_calendar" if purpose == "calendar" else "write_tasks"
+            use_col = "use_for_calendar" if purpose == "calendar" else "use_for_tasks"
+            stmt = select(ExternalAccount).where(
+                ExternalAccount.user_id == self.user_id,
+                ExternalAccount.provider == self.provider,
+                getattr(ExternalAccount, use_col).is_(True),
+                ExternalAccount.id != self.id,
+            )
+            result = await session.execute(stmt)
+            candidate = result.scalars().first()
+            if candidate:
+                setattr(candidate, write_col, True)
+                await session.flush()
 
     @classmethod
     async def get_by_email_provider_and_user(

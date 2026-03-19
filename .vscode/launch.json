@@ -6,7 +6,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "uvicorn",
-      "args": ["underway.app:create_app", "--factory", "--port", "8000", "--reload"],
+      "args": ["underway.app:create_app", "--factory", "--port", "8000", "--reload", "--reload-include", "*.env"],
       "cwd": "${workspaceFolder}/backend",
       "python": "${workspaceFolder}/backend/.venv/bin/python",
       "envFile": "${workspaceFolder}/backend/.env",

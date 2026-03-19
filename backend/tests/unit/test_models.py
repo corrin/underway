@@ -68,7 +68,7 @@ class TestUserModel:
         loaded = result.scalar_one()
         assert loaded.ai_api_key is None
         assert loaded.ai_instructions is None
-        assert loaded.llm_model is None
+        assert loaded.llm_model == "claude-sonnet-4-6"
 
 
 class TestExternalAccountModel:

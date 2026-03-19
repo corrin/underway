@@ -89,7 +89,10 @@ async def _prepare_and_stream(
                 return
 
             ai_api_key = user.ai_api_key
-            llm_model = user.llm_model or "gpt-4o"
+            if not user.llm_model:
+                yield _sse_event({"type": "error", "message": "LLM model not configured"})
+                return
+            llm_model = user.llm_model
             ai_instructions = user.ai_instructions
 
             # Get or create conversation

@@ -79,6 +79,10 @@ async def _refresh_account_token(session: AsyncSession, account: ExternalAccount
     # provider == "o365"
     import httpx
 
+    if not account.scopes:
+        msg = f"Account {account.external_email} has no scopes — cannot refresh token"
+        raise ValueError(msg)
+
     resp = await httpx.AsyncClient().post(
         "https://login.microsoftonline.com/common/oauth2/v2.0/token",
         data={
@@ -86,7 +90,7 @@ async def _refresh_account_token(session: AsyncSession, account: ExternalAccount
             "refresh_token": account.refresh_token,
             "client_id": account.client_id,
             "client_secret": account.client_secret,
-            "scope": account.scopes or "",
+            "scope": account.scopes,
         },
     )
     resp.raise_for_status()

@@ -1,36 +1,37 @@
 """Shared test fixtures."""
 
-import os
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
 import pytest
+from dotenv import load_dotenv
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from underway.app import create_app
-from underway.config import Settings, get_settings
-from underway.models import Base
+# Load env from the backend .env file BEFORE importing app code that reads settings.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-TEST_DATABASE_URL = os.environ.get(
-    "TEST_DATABASE_URL",
-    "mysql+aiomysql://underway:underway-dev-pass@localhost:3306/underway_test",
-)
+from underway.app import create_app  # noqa: E402
+from underway.config import Settings, get_settings  # noqa: E402
+from underway.models import Base  # noqa: E402
 
 
 @pytest.fixture
 def test_settings() -> Settings:
-    """Settings for testing — uses MariaDB test database."""
+    """Settings for testing — uses the test database."""
     return Settings(
         _env_file=None,
-        database_url=TEST_DATABASE_URL,
+        database_name="underway_test",
         jwt_secret_key="test-secret-key-at-least-32-chars!",
+        base_url="http://localhost:8000",
+        testing=True,
     )
 
 
 @pytest.fixture
-async def db_engine() -> AsyncGenerator[object, None]:
+async def db_engine(test_settings: Settings) -> AsyncGenerator[object, None]:
     """Shared engine: create tables before tests, drop after."""
-    engine = create_async_engine(TEST_DATABASE_URL)
+    engine = create_async_engine(test_settings.database_url)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine

@@ -28,7 +28,7 @@ async def _create_calendar_account(
     user: User,
     provider: str = "google",
     email: str = "cal@gmail.com",
-    primary: bool = True,
+    write: bool = True,
 ) -> ExternalAccount:
     account = ExternalAccount(
         user_id=user.id,
@@ -41,7 +41,7 @@ async def _create_calendar_account(
         client_secret="test-secret",
         scopes="openid calendar",
         use_for_calendar=True,
-        is_primary_calendar=primary,
+        write_calendar=write,
     )
     session.add(account)
     await session.flush()
@@ -168,41 +168,52 @@ class TestDeleteEvent:
         assert resp.status_code == 400
 
 
-class TestSetPrimary:
-    async def test_set_primary_success(self, client: AsyncClient, db_session: AsyncSession) -> None:
+class TestDisconnectAccount:
+    async def test_disconnect_success(self, client: AsyncClient, db_session: AsyncSession) -> None:
         user = await _create_user(db_session)
-        account = await _create_calendar_account(db_session, user, primary=False)
+        account = await _create_calendar_account(db_session, user)
         await db_session.commit()
 
-        resp = await client.post(
-            "/api/calendar/set-primary",
-            json={"account_id": str(account.id)},
+        resp = await client.delete(
+            f"/api/calendar/disconnect-account?account_id={account.id}",
             headers=_auth_headers(user),
         )
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
 
-    async def test_set_primary_invalid_id_returns_400(self, client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_disconnect_missing_id_returns_400(self, client: AsyncClient, db_session: AsyncSession) -> None:
         user = await _create_user(db_session)
         await db_session.commit()
 
-        resp = await client.post(
-            "/api/calendar/set-primary",
-            json={"account_id": "not-a-uuid"},
+        resp = await client.delete(
+            "/api/calendar/disconnect-account",
             headers=_auth_headers(user),
         )
         assert resp.status_code == 400
 
-    async def test_set_primary_not_found_returns_404(self, client: AsyncClient, db_session: AsyncSession) -> None:
+    async def test_disconnect_not_found_returns_404(self, client: AsyncClient, db_session: AsyncSession) -> None:
         user = await _create_user(db_session)
         await db_session.commit()
 
-        resp = await client.post(
-            "/api/calendar/set-primary",
-            json={"account_id": str(uuid.uuid4())},
+        resp = await client.delete(
+            f"/api/calendar/disconnect-account?account_id={uuid.uuid4()}",
             headers=_auth_headers(user),
         )
         assert resp.status_code == 404
+
+    async def test_disconnect_invalid_id_returns_400(self, client: AsyncClient, db_session: AsyncSession) -> None:
+        user = await _create_user(db_session)
+        await db_session.commit()
+
+        resp = await client.delete(
+            "/api/calendar/disconnect-account?account_id=not-a-uuid",
+            headers=_auth_headers(user),
+        )
+        assert resp.status_code == 400
+
+    async def test_unauthenticated_returns_401(self, client: AsyncClient) -> None:
+        resp = await client.delete(f"/api/calendar/disconnect-account?account_id={uuid.uuid4()}")
+        assert resp.status_code in (401, 403)
 
 
 class TestOAuthInitiate:

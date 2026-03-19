@@ -24,7 +24,7 @@ class User(Base):
     ai_api_key: Mapped[str | None] = mapped_column(String(255), default=None)
     ai_instructions: Mapped[str | None] = mapped_column(Text, default=None)
     schedule_slot_duration: Mapped[int | None] = mapped_column(default=60)
-    llm_model: Mapped[str | None] = mapped_column(String(100), default=None)
+    llm_model: Mapped[str] = mapped_column(String(100), default="claude-sonnet-4-6")
 
     external_accounts: Mapped[list[ExternalAccount]] = relationship(
         back_populates="user",

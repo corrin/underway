@@ -33,8 +33,8 @@ class TodoistProvider(TaskProvider):
             provider_name=self.provider_name,
             task_user_email=task_user_email,
         )
-        if account and account.api_key:
-            return TodoistAPI(account.api_key)
+        if account and account.token:
+            return TodoistAPI(account.token)
         logger.warning("No Todoist account for user_id=%s, email=%s", user_id, task_user_email)
         return None
 
@@ -46,12 +46,12 @@ class TodoistProvider(TaskProvider):
             provider_name=self.provider_name,
             task_user_email=task_user_email,
         )
-        if not account or not account.api_key:
-            return self.provider_name, "/settings"  # redirect to settings to add key
+        if not account or not account.token:
+            return self.provider_name, "/settings"  # redirect to settings to connect
 
-        # Test the key
+        # Test the token
         try:
-            api = TodoistAPI(account.api_key)
+            api = TodoistAPI(account.token)
             # Consume one page to verify credentials
             next(iter(api.get_projects()), None)
             return None  # authenticated
@@ -131,7 +131,10 @@ class TodoistProvider(TaskProvider):
         if not task:
             raise ValueError(f"Task {task_id} not found")
 
-        api = await self._get_api(session, user_id, task.task_user_email or "")
+        if not task.task_user_email:
+            msg = f"Task {task_id} has no task_user_email — cannot resolve Todoist account"
+            raise ValueError(msg)
+        api = await self._get_api(session, user_id, task.task_user_email)
         if not api:
             msg = f"Todoist API not initialized for user_id={user_id}"
             raise RuntimeError(msg)
@@ -165,7 +168,10 @@ class TodoistProvider(TaskProvider):
         if not task:
             raise ValueError(f"Task {task_id} not found")
 
-        api = await self._get_api(session, user_id, task.task_user_email or "")
+        if not task.task_user_email:
+            msg = f"Task {task_id} has no task_user_email — cannot resolve Todoist account"
+            raise ValueError(msg)
+        api = await self._get_api(session, user_id, task.task_user_email)
         if not api:
             msg = f"Todoist API not initialized for user_id={user_id}"
             raise RuntimeError(msg)

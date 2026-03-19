@@ -48,10 +48,10 @@ function onMoveTask(evt: { added?: { element: Task }; removed?: unknown }, desti
     <div class="tasks-header">
       <h1>Tasks</h1>
       <div class="header-actions">
-        <button class="btn-secondary" :disabled="store.syncing" @click="store.sync()">
+        <button class="btn-secondary" data-automation-id="tasks-sync-button" :disabled="store.syncing" @click="store.sync()">
           {{ store.syncing ? 'Syncing...' : 'Sync' }}
         </button>
-        <button class="btn-primary" @click="showAddForm = !showAddForm">
+        <button class="btn-primary" :data-automation-id="showAddForm ? 'tasks-cancel-button' : 'tasks-add-button'" @click="showAddForm = !showAddForm">
           {{ showAddForm ? 'Cancel' : '+ Add Task' }}
         </button>
       </div>
@@ -68,14 +68,15 @@ function onMoveTask(evt: { added?: { element: Task }; removed?: unknown }, desti
         placeholder="Task title..."
         autofocus
         class="add-task-input"
+        data-automation-id="tasks-add-input"
       />
-      <button type="submit" class="btn-primary" :disabled="!newTaskTitle.trim()">Add</button>
+      <button type="submit" class="btn-primary" data-automation-id="tasks-add-submit" :disabled="!newTaskTitle.trim()">Add</button>
     </form>
 
     <div v-if="store.loading" class="loading">Loading tasks...</div>
 
     <div v-else class="task-columns">
-      <section class="task-column">
+      <section class="task-column" data-automation-id="tasks-column-prioritized">
         <h2 class="column-header prioritized">Prioritized</h2>
         <draggable
           :list="store.prioritized"
@@ -97,7 +98,7 @@ function onMoveTask(evt: { added?: { element: Task }; removed?: unknown }, desti
         <div v-if="store.prioritized.length === 0" class="empty-list">No prioritized tasks</div>
       </section>
 
-      <section class="task-column">
+      <section class="task-column" data-automation-id="tasks-column-unprioritized">
         <h2 class="column-header unprioritized">Unprioritized</h2>
         <draggable
           :list="store.unprioritized"
@@ -119,7 +120,7 @@ function onMoveTask(evt: { added?: { element: Task }; removed?: unknown }, desti
         <div v-if="store.unprioritized.length === 0" class="empty-list">No unprioritized tasks</div>
       </section>
 
-      <section class="task-column">
+      <section class="task-column" data-automation-id="tasks-column-completed">
         <h2 class="column-header completed-header">Completed</h2>
         <draggable
           :list="store.completed"

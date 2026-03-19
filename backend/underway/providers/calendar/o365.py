@@ -248,14 +248,18 @@ async def handle_o365_oauth_callback(
             setattr(account, key, value)
         account.needs_reauth = False
         account.use_for_calendar = True
+        account.use_for_tasks = True
     else:
-        primary = await ExternalAccount.get_primary_account(session, user_id, "calendar")
+        writable_cal = await ExternalAccount.get_writable_account(session, user_id, "calendar")
+        writable_tasks = await ExternalAccount.get_writable_account(session, user_id, "tasks")
         account = ExternalAccount(
             user_id=user_id,
             external_email=o365_email,
             provider="o365",
             use_for_calendar=True,
-            is_primary_calendar=primary is None,
+            use_for_tasks=True,
+            write_calendar=writable_cal is None,
+            write_tasks=writable_tasks is None,
             **cred_data,
         )
         session.add(account)
@@ -270,15 +274,19 @@ async def _refresh_o365_token(account: ExternalAccount) -> bool:
     if not account.refresh_token:
         return False
 
+    if not account.client_id or not account.client_secret or not account.scopes:
+        msg = f"Account {account.external_email} missing OAuth credentials — cannot refresh token"
+        raise ValueError(msg)
+
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             "https://login.microsoftonline.com/common/oauth2/v2.0/token",
             data={
                 "grant_type": "refresh_token",
                 "refresh_token": account.refresh_token,
-                "client_id": account.client_id or "",
-                "client_secret": account.client_secret or "",
-                "scope": account.scopes or "",
+                "client_id": account.client_id,
+                "client_secret": account.client_secret,
+                "scope": account.scopes,
             },
         )
 
