@@ -7,3 +7,4 @@ backend/*.db
 .worktrees/
 .env
 .playwright-state.json
+e2e/__pycache__/

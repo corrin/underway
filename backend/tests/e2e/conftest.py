@@ -6,7 +6,6 @@ All fixtures use sync Playwright (sync_playwright).
 """
 
 import os
-import sys
 from collections.abc import Generator
 from pathlib import Path
 
@@ -24,18 +23,14 @@ E2E_TIMEOUT_MS = 10000
 # Then log into Google and close the browser.
 # Add PLAYWRIGHT_CHROME_PROFILE=<path> to backend/.env
 CHROME_PROFILE_DIR = os.environ.get("PLAYWRIGHT_CHROME_PROFILE", "")
-if not CHROME_PROFILE_DIR:
-    sys.exit("PLAYWRIGHT_CHROME_PROFILE is not set. Add it to backend/.env")
-
-# Base URL for the app — must go through ngrok, never localhost.
 BASE_URL = os.environ.get("BASE_URL", "")
-if not BASE_URL:
-    sys.exit("BASE_URL is not set. Add it to backend/.env")
 
 
 @pytest.fixture(scope="session")
 def base_url() -> str:
     """App base URL (ngrok)."""
+    if not BASE_URL:
+        pytest.skip("BASE_URL is not set. Add it to backend/.env")
     return BASE_URL
 
 
@@ -59,6 +54,8 @@ def authenticated_page(
     base_url: str,
 ) -> Generator[Page]:
     """Page with real Google auth via persistent Chrome profile."""
+    if not CHROME_PROFILE_DIR:
+        pytest.skip("PLAYWRIGHT_CHROME_PROFILE is not set. Add it to backend/.env")
     # Remove stale SingletonLock to prevent "profile already in use" crashes
     lock_file = Path(CHROME_PROFILE_DIR) / "SingletonLock"
     lock_file.unlink(missing_ok=True)
