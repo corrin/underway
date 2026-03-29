@@ -4051,20 +4051,20 @@ blobfile = ["blobfile (>=2)"]
 
 [[package]]
 name = "todoist-api-python"
-version = "3.2.1"
+version = "4.0.0"
 description = "Official Python SDK for the Todoist API."
 optional = false
-python-versions = "~=3.9"
+python-versions = "<4,>=3.10"
 groups = ["main"]
 files = [
-    {file = "todoist_api_python-3.2.1-py3-none-any.whl", hash = "sha256:1091e9b557291380abd79245efe961b0f2261c7b4eb16e52beccfc6357320e95"},
-    {file = "todoist_api_python-3.2.1.tar.gz", hash = "sha256:22c60230cc616437846f9a6469dddd97548545ef916d2bea98b2ca2f522d92f9"},
+    {file = "todoist_api_python-4.0.0-py3-none-any.whl", hash = "sha256:6b435f5fbf48da2faf7cb846a0de3b6719a33461958512d2adb4546494c195de"},
+    {file = "todoist_api_python-4.0.0.tar.gz", hash = "sha256:2e8acbaa4ea7aae05a640bd24690ca020ef8044610b0dcf4df85b8a788a43872"},
 ]
 
 [package.dependencies]
 annotated-types = "*"
-dataclass-wizard = ">=0.35.0,<1.0"
-requests = ">=2.32.3,<3"
+dataclass-wizard = ">=0.35.4,<1.0"
+httpx = ">=0.28.1,<1"
 
 [[package]]
 name = "tokenizers"
