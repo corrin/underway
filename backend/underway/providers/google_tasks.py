@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime
@@ -49,7 +50,7 @@ class GoogleTaskProvider(TaskProvider):
         )
 
         if creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            await asyncio.to_thread(creds.refresh, Request())  # blocking HTTP — must be off the event loop
             account.token = creds.token
             await session.flush()
 
