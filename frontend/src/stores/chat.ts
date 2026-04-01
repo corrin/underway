@@ -9,8 +9,11 @@ import {
   type Conversation,
   type ChatMessage,
   type DashboardData,
+  type DashboardTask,
   type SSEEvent,
 } from '@/api/chat'
+
+export type { DashboardTask }
 
 export const useChatStore = defineStore('chat', () => {
   const conversations = ref<Conversation[]>([])

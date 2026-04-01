@@ -19,11 +19,21 @@ export interface ChatMessage {
   created_at: string
 }
 
+export interface DashboardTask {
+  id: string
+  title: string
+  status: string
+  priority: number | null
+  due_date: string | null
+  list_type: string | null
+  position: number | null
+}
+
 export interface DashboardData {
   tasks: {
-    prioritized: unknown[]
-    unprioritized: unknown[]
-    completed: unknown[]
+    prioritized: DashboardTask[]
+    unprioritized: DashboardTask[]
+    completed: DashboardTask[]
   }
   events: unknown[]
 }
@@ -76,6 +86,11 @@ export async function sendMessage(
     body: JSON.stringify({ message, conversation_id: conversationId }),
   })
 
+  if (response.status === 401) {
+    localStorage.removeItem('token')
+    import('@/router').then(({ default: router }) => router.push('/login'))
+    throw new Error('Session expired. Please log in again.')
+  }
   if (!response.ok) {
     throw new Error(`Chat request failed: ${response.status}`)
   }

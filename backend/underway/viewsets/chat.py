@@ -11,7 +11,7 @@ from fastrest.request import Request
 from fastrest.viewsets import ModelViewSet
 from sqlalchemy import select
 
-from underway.models.conversation import Conversation
+from underway.models.conversation import ChatMessage, Conversation
 from underway.serializers.chat import ChatMessageSerializer, ConversationSerializer
 from underway.viewsets.base import SessionMixin
 
@@ -71,5 +71,11 @@ class ConversationViewSet(SessionMixin, ModelViewSet):
         if conversation is None:
             raise NotFound()
 
-        result_data: list[dict[str, object]] = ChatMessageSerializer(conversation.messages, many=True).data
+        msg_result = await self._session.execute(
+            select(ChatMessage)
+            .where(ChatMessage.conversation_id == conversation.id)
+            .order_by(ChatMessage.sequence)
+        )
+        messages = list(msg_result.scalars().all())
+        result_data: list[dict[str, object]] = ChatMessageSerializer(messages, many=True).data
         return result_data

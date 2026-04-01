@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch } from 'vue'
 import ChatMessage from '@/components/ChatMessage.vue'
-import { useChatStore } from '@/stores/chat'
+import { useChatStore, type DashboardTask } from '@/stores/chat'
 
 const store = useChatStore()
 const inputText = ref('')
@@ -124,8 +124,8 @@ function handleKeydown(e: KeyboardEvent) {
         <div class="dashboard-section">
           <h4>Prioritized</h4>
           <ul class="dashboard-list">
-            <li v-for="(task, i) in store.dashboard.tasks.prioritized" :key="i">
-              {{ (task as Record<string, unknown>).title || 'Untitled task' }}
+            <li v-for="(task) in (store.dashboard.tasks.prioritized as DashboardTask[])" :key="task.id">
+              {{ task.title || 'Untitled task' }}
             </li>
           </ul>
           <div v-if="store.dashboard.tasks.prioritized.length === 0" class="dashboard-empty">
@@ -136,8 +136,8 @@ function handleKeydown(e: KeyboardEvent) {
         <div class="dashboard-section">
           <h4>Unprioritized</h4>
           <ul class="dashboard-list">
-            <li v-for="(task, i) in store.dashboard.tasks.unprioritized" :key="i">
-              {{ (task as Record<string, unknown>).title || 'Untitled task' }}
+            <li v-for="(task) in (store.dashboard.tasks.unprioritized as DashboardTask[])" :key="task.id">
+              {{ task.title || 'Untitled task' }}
             </li>
           </ul>
           <div v-if="store.dashboard.tasks.unprioritized.length === 0" class="dashboard-empty">

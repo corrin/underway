@@ -27,7 +27,7 @@ class Conversation(Base):
 
     messages: Mapped[list[ChatMessage]] = relationship(
         back_populates="conversation",
-        lazy="selectin",
+        lazy="noload",  # never auto-load; fetch explicitly via the /messages action
         order_by="ChatMessage.sequence",
         cascade="all, delete-orphan",
     )

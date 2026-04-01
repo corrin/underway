@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from typing import Annotated
 
 from underway.auth.dependencies import get_current_user_from_request, get_db_session
 from underway.config import Settings, get_settings
+from underway.models.oauth_state import OAuthState
 from underway.providers.calendar.google import build_google_oauth_url, handle_google_oauth_callback
 from underway.providers.calendar.o365 import build_o365_oauth_url, handle_o365_oauth_callback
 
@@ -20,18 +21,21 @@ router = APIRouter(prefix="/api/oauth", tags=["oauth"])
 
 AppSettings = Annotated[Settings, Depends(get_settings)]
 
-# In-memory state store for OAuth flows. Maps state -> user_id.
-# In production, use Redis or DB-backed store.
-_oauth_states: dict[str, str] = {}
-
 
 @router.post("/google/initiate")
 async def initiate_google_oauth(request: Request, settings: AppSettings) -> dict[str, str]:
     """Return the Google OAuth URL for the frontend to redirect to."""
     user = await get_current_user_from_request(request)
+    session = get_db_session(request)
 
-    url, state = build_google_oauth_url(settings)
-    _oauth_states[state] = str(user.id)
+    url, state, code_verifier = build_google_oauth_url(settings)
+    await OAuthState.create(
+        session,
+        state=state,
+        user_id=user.id,
+        provider="google",
+        code_verifier=code_verifier,
+    )
 
     return {"authorization_url": url, "state": state}
 
@@ -45,19 +49,18 @@ async def google_oauth_callback(request: Request, settings: AppSettings) -> Redi
     if not code or not state:
         raise HTTPException(status_code=400, detail="Missing code or state parameter.")
 
-    user_id_str = _oauth_states.pop(state, None)
-    if not user_id_str:
-        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state.")
-
     session = get_db_session(request)
+    stored = await OAuthState.consume(session, state)
+    if not stored:
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state.")
 
     try:
         email = await handle_google_oauth_callback(
             code=code,
-            state=state,
-            settings=settings,
             session=session,
-            user_id=uuid.UUID(user_id_str),
+            user_id=stored.user_id,
+            settings=settings,
+            code_verifier=stored.code_verifier,
         )
         logger.info("Google OAuth completed for %s", email)
     except Exception:
@@ -71,9 +74,15 @@ async def google_oauth_callback(request: Request, settings: AppSettings) -> Redi
 async def initiate_o365_oauth(request: Request, settings: AppSettings) -> dict[str, str]:
     """Return the O365 OAuth URL for the frontend to redirect to."""
     user = await get_current_user_from_request(request)
+    session = get_db_session(request)
 
     url, state = build_o365_oauth_url(settings)
-    _oauth_states[state] = str(user.id)
+    await OAuthState.create(
+        session,
+        state=state,
+        user_id=user.id,
+        provider="o365",
+    )
 
     return {"authorization_url": url, "state": state}
 
@@ -87,11 +96,10 @@ async def o365_oauth_callback(request: Request, settings: AppSettings) -> Redire
     if not code or not state:
         raise HTTPException(status_code=400, detail="Missing code or state parameter.")
 
-    user_id_str = _oauth_states.pop(state, None)
-    if not user_id_str:
-        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state.")
-
     session = get_db_session(request)
+    stored = await OAuthState.consume(session, state)
+    if not stored:
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state.")
 
     try:
         email = await handle_o365_oauth_callback(
@@ -99,7 +107,7 @@ async def o365_oauth_callback(request: Request, settings: AppSettings) -> Redire
             state=state,
             settings=settings,
             session=session,
-            user_id=uuid.UUID(user_id_str),
+            user_id=stored.user_id,
         )
         logger.info("O365 OAuth completed for %s", email)
     except Exception:
