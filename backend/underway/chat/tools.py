@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC
@@ -11,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from underway.models.task import Task
+from underway.models.user import User
 
 _ToolHandler = Callable[[dict[str, Any], uuid.UUID, AsyncSession], Awaitable[dict[str, Any]]]
 
@@ -196,9 +199,24 @@ async def _handle_create_task(
     session: AsyncSession,
 ) -> dict[str, Any]:
     """Create a new task for the user."""
+    user_result = await session.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one_or_none()
+
+    content = {
+        "title": arguments["title"],
+        "status": "active",
+        "due_date": None,
+        "priority": arguments.get("priority"),
+        "project_id": None,
+        "parent_id": None,
+        "section_id": None,
+    }
+    content_hash = hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()
+
     task = Task(
         id=uuid.uuid4(),
         user_id=user_id,
+        task_user_email=user.app_login if user else None,
         provider="chat",
         provider_task_id=str(uuid.uuid4()),
         title=arguments["title"],
@@ -207,7 +225,7 @@ async def _handle_create_task(
         status="active",
         list_type="unprioritized",
         position=0,
-        content_hash="",
+        content_hash=content_hash,
     )
     session.add(task)
     await session.flush()
