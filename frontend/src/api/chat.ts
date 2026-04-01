@@ -86,6 +86,11 @@ export async function sendMessage(
     body: JSON.stringify({ message, conversation_id: conversationId }),
   })
 
+  if (response.status === 401) {
+    localStorage.removeItem('token')
+    import('@/router').then(({ default: router }) => router.push('/login'))
+    throw new Error('Session expired. Please log in again.')
+  }
   if (!response.ok) {
     throw new Error(`Chat request failed: ${response.status}`)
   }
