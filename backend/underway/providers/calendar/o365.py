@@ -9,6 +9,8 @@ from uuid import UUID
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from underway.config import get_settings
+
 from underway.config import Settings
 from underway.models.external_account import ExternalAccount
 from underway.providers.calendar.base import CalendarProvider
@@ -280,8 +282,8 @@ async def _refresh_o365_token(account: ExternalAccount) -> bool:
             data={
                 "grant_type": "refresh_token",
                 "refresh_token": account.refresh_token,
-                "client_id": account.client_id or "",
-                "client_secret": account.client_secret or "",
+                "client_id": get_settings().o365_client_id,
+                "client_secret": get_settings().o365_client_secret,
                 "scope": account.scopes or "",
             },
         )
