@@ -41,9 +41,6 @@ class ExternalAccount(Base):
     token: Mapped[str | None] = mapped_column(Text, default=None)
     api_key: Mapped[str | None] = mapped_column(String(255), default=None)
     refresh_token: Mapped[str | None] = mapped_column(Text, default=None)
-    token_uri: Mapped[str | None] = mapped_column(String(255), default=None)
-    client_id: Mapped[str | None] = mapped_column(String(255), default=None)
-    client_secret: Mapped[str | None] = mapped_column(String(255), default=None)
     scopes: Mapped[str | None] = mapped_column(Text, default=None)
 
     is_primary_calendar: Mapped[bool] = mapped_column(default=False)

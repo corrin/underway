@@ -14,6 +14,7 @@ from googleapiclient.discovery import build
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from underway.models.external_account import ExternalAccount
+from underway.config import get_settings
 from underway.providers.task_provider import ProviderTask, TaskProvider
 
 logger = logging.getLogger(__name__)
@@ -43,8 +44,8 @@ class GoogleTaskProvider(TaskProvider):
             token=account.token,
             refresh_token=account.refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
-            client_id=account.client_id,
-            client_secret=account.client_secret,
+            client_id=get_settings().google_client_id,
+            client_secret=get_settings().google_client_secret,
         )
 
         if creds.expired and creds.refresh_token:

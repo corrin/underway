@@ -18,6 +18,8 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from underway.config import get_settings
+
 from underway.config import Settings
 from underway.models.external_account import ExternalAccount
 from underway.providers.calendar.base import CalendarProvider
@@ -53,8 +55,8 @@ class GoogleCalendarProvider(CalendarProvider):
             token=account.token,
             refresh_token=account.refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
-            client_id=account.client_id,
-            client_secret=account.client_secret,
+            client_id=get_settings().google_client_id,
+            client_secret=get_settings().google_client_secret,
         )
         if creds.expired and creds.refresh_token:
             await asyncio.to_thread(creds.refresh, Request())
@@ -205,32 +207,37 @@ def _make_google_flow(settings: Settings) -> Flow:
     )
 
 
-def build_google_oauth_url(settings: Settings) -> tuple[str, str, Flow]:
-    """Return (authorization_url, state, flow) for the Google OAuth consent screen.
+def build_google_oauth_url(settings: Settings) -> tuple[str, str, str | None]:
+    """Return (authorization_url, state, code_verifier) for the Google OAuth consent screen.
 
-    The flow object must be retained by the caller and passed back into
-    handle_google_oauth_callback — it carries the PKCE code_verifier that
-    newer versions of google-auth-oauthlib attach automatically.
+    The code_verifier must be persisted by the caller (e.g. in the DB) and
+    passed back into handle_google_oauth_callback to complete the PKCE exchange.
+    It may be None if the installed flow version does not use PKCE.
     """
     flow = _make_google_flow(settings)
     authorization_url, state = flow.authorization_url(
         prompt="consent",
         access_type="offline",
     )
-    return authorization_url, state, flow
+    # Extract the PKCE code_verifier if present (google-auth-oauthlib >= 1.1)
+    code_verifier: str | None = getattr(flow.oauth2session, "code_challenge_method", None) and getattr(
+        flow.oauth2session._client, "code_verifier", None  # noqa: SLF001
+    )
+    return authorization_url, state, code_verifier
 
 
 async def handle_google_oauth_callback(
-    flow: Flow,
     code: str,
     session: AsyncSession,
     user_id: UUID,
+    settings: Settings,
+    code_verifier: str | None = None,
 ) -> str:
-    """Exchange the authorization code for tokens, store them, return the calendar email.
-
-    ``flow`` must be the same object returned by ``build_google_oauth_url`` so
-    that any PKCE code_verifier is available for the token exchange.
-    """
+    """Exchange the authorization code for tokens, store them, return the calendar email."""
+    flow = _make_google_flow(settings)
+    if code_verifier:
+        # Re-inject the PKCE code_verifier so the token exchange succeeds
+        flow.oauth2session._client.code_verifier = code_verifier  # noqa: SLF001
     flow.fetch_token(code=code)
     creds = flow.credentials
 
@@ -248,9 +255,6 @@ async def handle_google_oauth_callback(
     cred_data = {
         "token": creds.token,
         "refresh_token": creds.refresh_token,
-        "token_uri": creds.token_uri,
-        "client_id": creds.client_id,
-        "client_secret": creds.client_secret,
         "scopes": " ".join(creds.scopes) if creds.scopes else "",
         "expires_at": creds.expiry.replace(tzinfo=UTC) if creds.expiry else None,
     }
