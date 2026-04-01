@@ -8,10 +8,8 @@ from datetime import UTC, datetime, timedelta
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
-from sqlalchemy import delete
 
 from underway.config import Settings, get_settings
 from underway.models.external_account import ExternalAccount
@@ -25,10 +23,9 @@ REFRESH_AHEAD_MINUTES = 15  # refresh tokens expiring within this window
 
 async def purge_expired_oauth_states(session: AsyncSession) -> int:
     """Delete oauth_state rows past their expiry. Returns number of rows deleted."""
-    result = await session.execute(
-        delete(OAuthState).where(OAuthState.expires_at < datetime.now(UTC))
-    )
-    count: int = result.rowcount  # type: ignore[assignment]
+    result = await session.execute(delete(OAuthState).where(OAuthState.expires_at < datetime.now(UTC)))
+    # DML execute() returns CursorResult which has rowcount, but async stubs type it as Result
+    count: int = result.rowcount  # type: ignore[attr-defined]
     if count:
         logger.info("Purged %d expired oauth_state rows", count)
     return count

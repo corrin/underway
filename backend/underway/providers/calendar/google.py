@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from googleapiclient._apis.calendar.v3.schemas import Event, EventDateTime
+    from googleapiclient._apis.calendar.v3.schemas import Event, EventDateTime, Events
 
 from google.auth.transport.requests import AuthorizedSession, Request
 from google.oauth2.credentials import Credentials
@@ -18,9 +18,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from underway.config import get_settings
-
-from underway.config import Settings
+from underway.config import Settings, get_settings
 from underway.models.external_account import ExternalAccount
 from underway.providers.calendar.base import CalendarProvider
 from underway.providers.calendar.models import CalendarEvent, CalendarEventCreate
@@ -82,7 +80,8 @@ class GoogleCalendarProvider(CalendarProvider):
 
         service = await asyncio.to_thread(build, "calendar", "v3", credentials=creds)
         try:
-            def _list_events() -> dict:  # type: ignore[type-arg]
+
+            def _list_events() -> Events:
                 return (
                     service.events()
                     .list(
@@ -94,6 +93,7 @@ class GoogleCalendarProvider(CalendarProvider):
                     )
                     .execute()
                 )
+
             result = await asyncio.to_thread(_list_events)
         except HttpError as exc:
             logger.error("Google Calendar API error for %s: %s", email, exc)
@@ -190,7 +190,7 @@ class GoogleCalendarProvider(CalendarProvider):
 # ---------------------------------------------------------------------------
 
 
-def _make_google_flow(settings: Settings) -> Flow:
+def _make_google_flow(settings: Settings, *, code_verifier: str | None = None) -> Flow:
     """Build a Google OAuth Flow from app settings."""
     return Flow.from_client_config(
         {
@@ -204,6 +204,7 @@ def _make_google_flow(settings: Settings) -> Flow:
         },
         scopes=GOOGLE_CALENDAR_SCOPES,
         redirect_uri=settings.google_redirect_uri,
+        code_verifier=code_verifier,
     )
 
 
@@ -219,8 +220,8 @@ def build_google_oauth_url(settings: Settings) -> tuple[str, str, str | None]:
         prompt="consent",
         access_type="offline",
     )
-    # Extract the PKCE code_verifier — google-auth-oauthlib generates it on
-    # flow.code_verifier (autogenerate_code_verifier=True by default)
+    # PKCE code_verifier — generated automatically by Flow.from_client_config
+    # (autogenerate_code_verifier defaults to True)
     code_verifier: str | None = getattr(flow, "code_verifier", None)
     return authorization_url, state, code_verifier
 
@@ -233,10 +234,7 @@ async def handle_google_oauth_callback(
     code_verifier: str | None = None,
 ) -> str:
     """Exchange the authorization code for tokens, store them, return the calendar email."""
-    flow = _make_google_flow(settings)
-    if code_verifier:
-        # Re-inject the PKCE code_verifier so flow.fetch_token sends it in the token exchange
-        flow.code_verifier = code_verifier
+    flow = _make_google_flow(settings, code_verifier=code_verifier)
     flow.fetch_token(code=code)
     creds = flow.credentials
 

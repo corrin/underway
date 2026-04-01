@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated, Any
 
 import litellm
@@ -13,8 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from underway.auth.dependencies import get_current_user, get_db_session
 from underway.auth.jwt import JWTUser
 from underway.models.user import User
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +103,9 @@ async def test_model(
         "tool_calling": False,
         "tool_calling_error": None,
     }
+
+    # Error messages are intentionally returned verbatim below — this is a
+    # diagnostic endpoint where the user needs to see *why* their config fails.
 
     # 1. Basic completion
     try:

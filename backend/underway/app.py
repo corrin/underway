@@ -1,6 +1,7 @@
 """FastAPI application factory."""
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -48,6 +49,7 @@ def create_app(
         if _factory[0] is None:
             engine = create_async_engine(settings.database_url, echo=False)
             _factory[0] = async_sessionmaker(engine, expire_on_commit=False)
+        assert _factory[0] is not None
         return _factory[0]
 
     @asynccontextmanager
@@ -60,10 +62,8 @@ def create_app(
             yield
         finally:
             refresh_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await refresh_task
-            except asyncio.CancelledError:
-                pass
             logger.info("Token refresh background task stopped")
 
     app = FastAPI(

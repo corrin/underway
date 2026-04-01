@@ -53,6 +53,7 @@ interface ModelTestResult {
 
 const testResult = ref<ModelTestResult | null>(null)
 const testing = ref(false)
+const connecting = ref(false)
 
 async function loadSettings() {
   try {
@@ -111,21 +112,25 @@ async function testModel() {
 
 async function connectGoogle() {
   error.value = null
+  connecting.value = true
   try {
     const response = await api.post('/oauth/google/initiate')
     window.location.href = response.data.authorization_url
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'Failed to initiate Google connection'
+    connecting.value = false
   }
 }
 
 async function connectO365() {
   error.value = null
+  connecting.value = true
   try {
     const response = await api.post('/oauth/o365/initiate')
     window.location.href = response.data.authorization_url
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'Failed to initiate O365 connection'
+    connecting.value = false
   }
 }
 
@@ -242,10 +247,10 @@ onMounted(() => {
       </div>
 
       <div class="connect-buttons">
-        <button class="btn-connect" @click="connectGoogle">
+        <button class="btn-connect" :disabled="connecting" @click="connectGoogle">
           Connect Google Calendar
         </button>
-        <button class="btn-connect" @click="connectO365">
+        <button class="btn-connect" :disabled="connecting" @click="connectO365">
           Connect Microsoft 365
         </button>
       </div>
