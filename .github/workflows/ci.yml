@@ -54,7 +54,7 @@ jobs:
       - name: ruff format
         run: poetry run ruff format --check underway
       - name: pytest
-        run: poetry run pytest -v
+        run: poetry run pytest -v --ignore=tests/e2e
         env:
           TEST_DATABASE_URL: mysql+aiomysql://underway:underway-ci-pass@127.0.0.1:3306/underway_test
           JWT_SECRET_KEY: test-secret

@@ -8,3 +8,4 @@ backend/*.db
 .env
 .playwright-state.json
 ngrok.yml
+e2e/__pycache__/

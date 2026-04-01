@@ -24,6 +24,7 @@ def test_settings() -> Settings:
         _env_file=None,
         database_url=TEST_DATABASE_URL,
         jwt_secret_key="test-secret-key-at-least-32-chars!",
+        testing=True,
     )
 
 
