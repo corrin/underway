@@ -219,6 +219,7 @@ async def handle_o365_oauth_callback(
 
     access_token = token_data["access_token"]
     refresh_token = token_data.get("refresh_token")
+    expires_in = token_data.get("expires_in", 3600)
 
     # Get user email from Graph API
     async with httpx.AsyncClient() as client:
@@ -234,6 +235,8 @@ async def handle_o365_oauth_callback(
         session, external_email=o365_email, provider="o365", user_id=user_id
     )
 
+    from datetime import UTC, timedelta
+
     cred_data = {
         "token": access_token,
         "refresh_token": refresh_token,
@@ -241,6 +244,7 @@ async def handle_o365_oauth_callback(
         "client_id": settings.o365_client_id,
         "client_secret": settings.o365_client_secret,
         "scopes": " ".join(O365_SCOPES),
+        "expires_at": datetime.now(UTC) + timedelta(seconds=expires_in),
     }
 
     if account:

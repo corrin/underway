@@ -22,6 +22,7 @@ class User(Base):
     app_login: Mapped[str] = mapped_column(String(120), unique=True, index=True)
 
     ai_api_key: Mapped[str | None] = mapped_column(String(255), default=None)
+    ai_api_base: Mapped[str | None] = mapped_column(String(500), default=None)
     ai_instructions: Mapped[str | None] = mapped_column(Text, default=None)
     schedule_slot_duration: Mapped[int | None] = mapped_column(default=60)
     llm_model: Mapped[str | None] = mapped_column(String(100), default=None)

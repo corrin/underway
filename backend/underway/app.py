@@ -24,17 +24,6 @@ from underway.viewsets.tasks import TaskViewSet
 
 logger = logging.getLogger(__name__)
 
-_session_factory: async_sessionmaker[AsyncSession] | None = None
-
-
-async def _get_session_factory(settings: Settings) -> async_sessionmaker[AsyncSession]:
-    global _session_factory
-    if _session_factory is None:
-        engine = create_async_engine(settings.database_url, echo=False)
-        _session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    return _session_factory
-
-
 def create_app(
     settings: Settings | None = None,
     session_factory: async_sessionmaker[AsyncSession] | None = None,
@@ -63,10 +52,17 @@ def create_app(
         },
     )
 
+    # Per-app factory: use injected one (tests) or lazily create from settings.
+    # Stored in a closure list so the inner async function can rebind it.
+    _factory: list[async_sessionmaker[AsyncSession] | None] = [session_factory]
+
     @app.middleware("http")
     async def db_session_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         """Inject an async DB session into request.state for routes and viewsets."""
-        factory = session_factory or await _get_session_factory(settings)
+        if _factory[0] is None:
+            engine = create_async_engine(settings.database_url, echo=False)
+            _factory[0] = async_sessionmaker(engine, expire_on_commit=False)
+        factory = _factory[0]
         request.state.session_factory = factory
         async with factory() as session:
             request.state.db_session = session

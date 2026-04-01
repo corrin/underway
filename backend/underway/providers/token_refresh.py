@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from underway.models.external_account import ExternalAccount
@@ -16,21 +16,24 @@ from underway.models.external_account import ExternalAccount
 logger = logging.getLogger(__name__)
 
 REFRESH_INTERVAL_SECONDS = 30 * 60  # 30 minutes
-TOKEN_AGE_CUTOFF_MINUTES = 45
+REFRESH_AHEAD_MINUTES = 15  # refresh tokens expiring within this window
 
 
 async def refresh_soon_expiring_tokens(
     session: AsyncSession,
 ) -> dict[str, int]:
     """Find accounts with tokens expiring soon and refresh them."""
-    cutoff = datetime.now(UTC) - timedelta(minutes=TOKEN_AGE_CUTOFF_MINUTES)
+    cutoff = datetime.now(UTC) + timedelta(minutes=REFRESH_AHEAD_MINUTES)
 
     result = await session.execute(
         select(ExternalAccount).where(
             ExternalAccount.needs_reauth.is_(False),
             ExternalAccount.refresh_token.is_not(None),
             ExternalAccount.provider.in_(["google", "o365"]),
-            ExternalAccount.last_sync < cutoff,
+            or_(
+                ExternalAccount.expires_at.is_(None),
+                ExternalAccount.expires_at < cutoff,
+            ),
         )
     )
     accounts = list(result.scalars().all())
@@ -70,8 +73,10 @@ async def _refresh_account_token(session: AsyncSession, account: ExternalAccount
             client_id=account.client_id,
             client_secret=account.client_secret,
         )
-        creds.refresh(Request())
+        await asyncio.to_thread(creds.refresh, Request())
         account.token = creds.token
+        if creds.expiry:
+            account.expires_at = creds.expiry.replace(tzinfo=UTC)
         account.last_sync = datetime.now(UTC)
         logger.info("Refreshed Google token for %s", account.external_email)
         return
@@ -94,6 +99,8 @@ async def _refresh_account_token(session: AsyncSession, account: ExternalAccount
     account.token = data["access_token"]
     if "refresh_token" in data:
         account.refresh_token = data["refresh_token"]
+    if "expires_in" in data:
+        account.expires_at = datetime.now(UTC) + timedelta(seconds=data["expires_in"])
     account.last_sync = datetime.now(UTC)
     logger.info("Refreshed O365 token for %s", account.external_email)
 

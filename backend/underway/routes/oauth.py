@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -20,9 +20,11 @@ router = APIRouter(prefix="/api/oauth", tags=["oauth"])
 
 AppSettings = Annotated[Settings, Depends(get_settings)]
 
-# In-memory state store for OAuth flows. Maps state -> user_id.
+# In-memory state store for OAuth flows.
+# Maps state -> {'user_id': str, 'flow': Flow | None}
+# The flow object is retained to preserve the PKCE code_verifier.
 # In production, use Redis or DB-backed store.
-_oauth_states: dict[str, str] = {}
+_oauth_states: dict[str, dict[str, Any]] = {}
 
 
 @router.post("/google/initiate")
@@ -30,8 +32,8 @@ async def initiate_google_oauth(request: Request, settings: AppSettings) -> dict
     """Return the Google OAuth URL for the frontend to redirect to."""
     user = await get_current_user_from_request(request)
 
-    url, state = build_google_oauth_url(settings)
-    _oauth_states[state] = str(user.id)
+    url, state, flow = build_google_oauth_url(settings)
+    _oauth_states[state] = {"user_id": str(user.id), "flow": flow}
 
     return {"authorization_url": url, "state": state}
 
@@ -45,19 +47,18 @@ async def google_oauth_callback(request: Request, settings: AppSettings) -> Redi
     if not code or not state:
         raise HTTPException(status_code=400, detail="Missing code or state parameter.")
 
-    user_id_str = _oauth_states.pop(state, None)
-    if not user_id_str:
+    stored = _oauth_states.pop(state, None)
+    if not stored:
         raise HTTPException(status_code=400, detail="Invalid or expired OAuth state.")
 
     session = get_db_session(request)
 
     try:
         email = await handle_google_oauth_callback(
+            flow=stored["flow"],
             code=code,
-            state=state,
-            settings=settings,
             session=session,
-            user_id=uuid.UUID(user_id_str),
+            user_id=uuid.UUID(stored["user_id"]),
         )
         logger.info("Google OAuth completed for %s", email)
     except Exception:

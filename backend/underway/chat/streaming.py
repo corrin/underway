@@ -89,6 +89,7 @@ async def _prepare_and_stream(
                 return
 
             ai_api_key = user.ai_api_key
+            ai_api_base = user.ai_api_base or None
             llm_model = user.llm_model or "gpt-4o"
             ai_instructions = user.ai_instructions
 
@@ -147,6 +148,7 @@ async def _prepare_and_stream(
                     tools=TOOL_DEFINITIONS,
                     stream=True,
                     api_key=ai_api_key,
+                    base_url=ai_api_base,
                 )
 
                 content_parts: list[str] = []
