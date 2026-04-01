@@ -242,9 +242,6 @@ async def handle_o365_oauth_callback(
     cred_data = {
         "token": access_token,
         "refresh_token": refresh_token,
-        "token_uri": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-        "client_id": settings.o365_client_id,
-        "client_secret": settings.o365_client_secret,
         "scopes": " ".join(O365_SCOPES),
         "expires_at": datetime.now(UTC) + timedelta(seconds=expires_in),
     }

@@ -190,8 +190,13 @@ class GoogleCalendarProvider(CalendarProvider):
 # ---------------------------------------------------------------------------
 
 
-def _make_google_flow(settings: Settings) -> Flow:
-    """Build a Google OAuth Flow from app settings."""
+def _make_google_flow(settings: Settings, *, autogenerate_code_verifier: bool = False) -> Flow:
+    """Build a Google OAuth Flow from app settings.
+
+    Pass autogenerate_code_verifier=True when building the initiation flow so
+    PKCE is explicitly enabled.  Leave it False for the callback reconstruction
+    (the verifier is re-injected from the DB instead).
+    """
     return Flow.from_client_config(
         {
             "web": {
@@ -204,6 +209,7 @@ def _make_google_flow(settings: Settings) -> Flow:
         },
         scopes=GOOGLE_CALENDAR_SCOPES,
         redirect_uri=settings.google_redirect_uri,
+        autogenerate_code_verifier=autogenerate_code_verifier,
     )
 
 
@@ -214,14 +220,15 @@ def build_google_oauth_url(settings: Settings) -> tuple[str, str, str | None]:
     passed back into handle_google_oauth_callback to complete the PKCE exchange.
     It may be None if the installed flow version does not use PKCE.
     """
-    flow = _make_google_flow(settings)
+    # autogenerate_code_verifier=True is the default in from_client_config but
+    # we pass it explicitly so the intent is clear and not sensitive to library defaults.
+    flow = _make_google_flow(settings, autogenerate_code_verifier=True)
     authorization_url, state = flow.authorization_url(
         prompt="consent",
         access_type="offline",
     )
-    # Extract the PKCE code_verifier — google-auth-oauthlib generates it on
-    # flow.code_verifier (autogenerate_code_verifier=True by default)
-    code_verifier: str | None = getattr(flow, "code_verifier", None)
+    # flow.code_verifier is set by authorization_url() when autogenerate_code_verifier=True
+    code_verifier: str | None = flow.code_verifier or None
     return authorization_url, state, code_verifier
 
 

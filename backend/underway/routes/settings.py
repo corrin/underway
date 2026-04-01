@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated, Any
 
 import litellm
+
+logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -115,7 +118,8 @@ async def test_model(
         )
         out["completion"] = bool(resp.choices[0].message.content)
     except Exception as exc:
-        out["completion_error"] = str(exc)
+        logger.warning("test-model completion failed: %s", exc)
+        out["completion_error"] = str(exc)[:500]
 
     # 2. Streaming
     try:
@@ -133,7 +137,8 @@ async def test_model(
                 chunks.append(delta)
         out["streaming"] = len(chunks) > 0
     except Exception as exc:
-        out["streaming_error"] = str(exc)
+        logger.warning("test-model streaming failed: %s", exc)
+        out["streaming_error"] = str(exc)[:500]
 
     # 3. Tool calling
     tools = [
@@ -160,7 +165,8 @@ async def test_model(
         )
         out["tool_calling"] = bool(tool_resp.choices[0].message.tool_calls)
     except Exception as exc:
-        out["tool_calling_error"] = str(exc)
+        logger.warning("test-model tool-calling failed: %s", exc)
+        out["tool_calling_error"] = str(exc)[:500]
 
     return out
 

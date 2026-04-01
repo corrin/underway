@@ -53,6 +53,7 @@ interface ModelTestResult {
 
 const testResult = ref<ModelTestResult | null>(null)
 const testing = ref(false)
+const connecting = ref<'google' | 'o365' | null>(null)
 
 async function loadSettings() {
   try {
@@ -110,22 +111,28 @@ async function testModel() {
 }
 
 async function connectGoogle() {
+  if (connecting.value) return
   error.value = null
+  connecting.value = 'google'
   try {
     const response = await api.post('/oauth/google/initiate')
     window.location.href = response.data.authorization_url
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'Failed to initiate Google connection'
+    connecting.value = null
   }
 }
 
 async function connectO365() {
+  if (connecting.value) return
   error.value = null
+  connecting.value = 'o365'
   try {
     const response = await api.post('/oauth/o365/initiate')
     window.location.href = response.data.authorization_url
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'Failed to initiate O365 connection'
+    connecting.value = null
   }
 }
 
@@ -242,11 +249,11 @@ onMounted(() => {
       </div>
 
       <div class="connect-buttons">
-        <button class="btn-connect" @click="connectGoogle">
-          Connect Google Calendar
+        <button class="btn-connect" :disabled="!!connecting" @click="connectGoogle">
+          {{ connecting === 'google' ? 'Connecting…' : 'Connect Google Calendar' }}
         </button>
-        <button class="btn-connect" @click="connectO365">
-          Connect Microsoft 365
+        <button class="btn-connect" :disabled="!!connecting" @click="connectO365">
+          {{ connecting === 'o365' ? 'Connecting…' : 'Connect Microsoft 365' }}
         </button>
       </div>
     </section>
