@@ -7,3 +7,4 @@ backend/*.db
 .worktrees/
 .env
 .playwright-state.json
+ngrok.yml
