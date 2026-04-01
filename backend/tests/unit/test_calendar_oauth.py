@@ -12,10 +12,11 @@ class TestGoogleOAuthUrl:
             google_client_secret="test-secret",
             google_redirect_uri="http://localhost:8000/api/oauth/google/callback",
         )
-        url, state = build_google_oauth_url(settings)
+        url, state, code_verifier = build_google_oauth_url(settings)
         assert "accounts.google.com" in url
         assert "test-client-id" in url
         assert state  # non-empty
+        assert code_verifier  # PKCE verifier generated
 
     def test_url_includes_calendar_scope(self) -> None:
         from underway.providers.calendar.google import build_google_oauth_url
@@ -25,7 +26,7 @@ class TestGoogleOAuthUrl:
             google_client_secret="test-secret",
             google_redirect_uri="http://localhost:8000/api/oauth/google/callback",
         )
-        url, _ = build_google_oauth_url(settings)
+        url, _, _cv = build_google_oauth_url(settings)
         assert "calendar" in url
 
 
