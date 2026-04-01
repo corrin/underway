@@ -219,10 +219,9 @@ def build_google_oauth_url(settings: Settings) -> tuple[str, str, str | None]:
         prompt="consent",
         access_type="offline",
     )
-    # Extract the PKCE code_verifier if present (google-auth-oauthlib >= 1.1)
-    code_verifier: str | None = getattr(flow.oauth2session, "code_challenge_method", None) and getattr(
-        flow.oauth2session._client, "code_verifier", None  # noqa: SLF001
-    )
+    # Extract the PKCE code_verifier — google-auth-oauthlib generates it on
+    # flow.code_verifier (autogenerate_code_verifier=True by default)
+    code_verifier: str | None = getattr(flow, "code_verifier", None)
     return authorization_url, state, code_verifier
 
 
@@ -236,8 +235,8 @@ async def handle_google_oauth_callback(
     """Exchange the authorization code for tokens, store them, return the calendar email."""
     flow = _make_google_flow(settings)
     if code_verifier:
-        # Re-inject the PKCE code_verifier so the token exchange succeeds
-        flow.oauth2session._client.code_verifier = code_verifier  # noqa: SLF001
+        # Re-inject the PKCE code_verifier so flow.fetch_token sends it in the token exchange
+        flow.code_verifier = code_verifier
     flow.fetch_token(code=code)
     creds = flow.credentials
 
