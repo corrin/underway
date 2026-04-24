@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     google_scopes: str = "https://www.googleapis.com/auth/calendar"
     o365_scopes: str = "https://graph.microsoft.com/Calendars.ReadWrite"
 
+    playwright_chrome_profile: str = ""
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
     def validate_required(self) -> None:

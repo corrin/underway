@@ -21,7 +21,6 @@ const renderedContent = computed(() => {
 
 <template>
   <div class="chat-message" :class="[`chat-message--${role}`]">
-    <div class="chat-message__role">{{ role }}</div>
     <div v-if="role === 'tool'" class="chat-message__tool">
       <details>
         <summary>Tool output</summary>
@@ -41,36 +40,44 @@ const renderedContent = computed(() => {
 <style scoped>
 .chat-message {
   padding: 0.75rem 1rem;
-  border-radius: 8px;
-  margin-bottom: 0.5rem;
+  border-radius: 1rem;
+  max-width: 80%;
 }
 
 .chat-message--user {
-  background: #dbeafe;
-  color: #1e3a5f;
-  margin-left: 2rem;
+  background: #0d6efd;
+  color: #fff;
+  align-self: flex-end;
+  border-bottom-right-radius: 0.25rem;
 }
 
 .chat-message--assistant {
-  background: var(--color-background-soft, #f5f5f5);
-  color: var(--color-text, #333);
-  margin-right: 2rem;
+  background: #e9ecef;
+  color: #212529;
+  align-self: flex-start;
+  border-bottom-left-radius: 0.25rem;
 }
 
 .chat-message--tool {
   background: #f0fdf4;
   color: #14532d;
-  margin-right: 2rem;
+  align-self: flex-start;
   font-size: 0.85rem;
 }
 
-.chat-message__role {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
-  opacity: 0.6;
+/* White text overrides for user messages */
+.chat-message--user :deep(a) {
+  color: #cfe2ff;
+  text-decoration: underline;
+}
+
+.chat-message--user :deep(code) {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.chat-message--user :deep(pre) {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .chat-message__content :deep(p) {
