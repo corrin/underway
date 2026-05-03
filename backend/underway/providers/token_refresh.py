@@ -5,13 +5,13 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
-from sqlalchemy import delete
 
 from underway.config import Settings, get_settings
 from underway.models.external_account import ExternalAccount
@@ -25,12 +25,16 @@ REFRESH_AHEAD_MINUTES = 15  # refresh tokens expiring within this window
 
 async def purge_expired_oauth_states(session: AsyncSession) -> int:
     """Delete oauth_state rows past their expiry. Returns number of rows deleted."""
-    result = await session.execute(
-        delete(OAuthState).where(OAuthState.expires_at < datetime.now(UTC))
-    )
-    count: int = result.rowcount  # type: ignore[assignment]
+    # session.execute(delete(...)) returns a CursorResult at runtime, but its
+    # static return type is the generic Result[Any] which lacks .rowcount.
+    stmt = delete(OAuthState).where(OAuthState.expires_at < datetime.now(UTC))
+    result = cast(CursorResult[Any], await session.execute(stmt))
+    count: int = result.rowcount
     if count:
         logger.info("Purged %d expired oauth_state rows", count)
+    else:
+        # Nothing to purge — leave logging quiet
+        pass
     return count
 
 

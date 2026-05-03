@@ -41,7 +41,7 @@ class OAuthState(Base):
         user_id: uuid.UUID,
         provider: str,
         code_verifier: str | None = None,
-    ) -> "OAuthState":
+    ) -> OAuthState:
         record = cls(
             state=state,
             user_id=user_id,
@@ -58,7 +58,7 @@ class OAuthState(Base):
         cls,
         session: AsyncSession,
         state: str,
-    ) -> "OAuthState | None":
+    ) -> OAuthState | None:
         """Fetch and delete the state record in one operation. Returns None if missing or expired."""
         result = await session.execute(select(cls).where(cls.state == state))
         record = result.scalar_one_or_none()

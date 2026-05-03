@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from googleapiclient._apis.calendar.v3.schemas import Event, EventDateTime
+    from googleapiclient._apis.calendar.v3.schemas import Event, EventDateTime, Events
 
 from google.auth.transport.requests import AuthorizedSession, Request
 from google.oauth2.credentials import Credentials
@@ -18,9 +18,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from underway.config import get_settings
-
-from underway.config import Settings
+from underway.config import Settings, get_settings
 from underway.models.external_account import ExternalAccount
 from underway.providers.calendar.base import CalendarProvider
 from underway.providers.calendar.models import CalendarEvent, CalendarEventCreate
@@ -82,7 +80,8 @@ class GoogleCalendarProvider(CalendarProvider):
 
         service = await asyncio.to_thread(build, "calendar", "v3", credentials=creds)
         try:
-            def _list_events() -> dict:  # type: ignore[type-arg]
+
+            def _list_events() -> Events:
                 return (
                     service.events()
                     .list(
@@ -94,6 +93,7 @@ class GoogleCalendarProvider(CalendarProvider):
                     )
                     .execute()
                 )
+
             result = await asyncio.to_thread(_list_events)
         except HttpError as exc:
             logger.error("Google Calendar API error for %s: %s", email, exc)
@@ -244,6 +244,9 @@ async def handle_google_oauth_callback(
     if code_verifier:
         # Re-inject the PKCE code_verifier so flow.fetch_token sends it in the token exchange
         flow.code_verifier = code_verifier
+    else:
+        # No persisted verifier (older flow without PKCE) — proceed without re-injection
+        pass
     flow.fetch_token(code=code)
     creds = flow.credentials
 

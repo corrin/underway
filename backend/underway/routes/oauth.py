@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import logging
-import uuid
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from typing import Annotated
 
 from underway.auth.dependencies import get_current_user_from_request, get_db_session
 from underway.config import Settings, get_settings

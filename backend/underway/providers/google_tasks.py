@@ -14,8 +14,8 @@ from googleapiclient._apis.tasks.v1 import TasksResource
 from googleapiclient.discovery import build
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from underway.models.external_account import ExternalAccount
 from underway.config import get_settings
+from underway.models.external_account import ExternalAccount
 from underway.providers.task_provider import ProviderTask, TaskProvider
 
 logger = logging.getLogger(__name__)

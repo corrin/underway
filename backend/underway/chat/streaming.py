@@ -137,7 +137,11 @@ async def _prepare_and_stream(
             # Build message list from plain dicts, capping history to avoid context overflow.
             # Always keep the most recent MAX_HISTORY_MESSAGES messages so the LLM
             # has recent context; older messages are silently dropped.
-            capped = existing_messages[-MAX_HISTORY_MESSAGES:] if len(existing_messages) > MAX_HISTORY_MESSAGES else existing_messages
+            capped = (
+                existing_messages[-MAX_HISTORY_MESSAGES:]
+                if len(existing_messages) > MAX_HISTORY_MESSAGES
+                else existing_messages
+            )
             history_dicts = [msg.to_dict() for msg in capped]
             history_dicts.append({"role": "user", "content": message})
             messages = _build_messages(SYSTEM_PROMPT, ai_instructions, history_dicts)
