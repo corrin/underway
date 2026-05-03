@@ -179,6 +179,7 @@ class O365CalendarProvider(CalendarProvider):
 def build_o365_oauth_url(settings: Settings) -> tuple[str, str]:
     """Return (authorization_url, state) for the O365 OAuth consent screen."""
     import secrets
+    from urllib.parse import urlencode
 
     state = secrets.token_urlsafe(32)
     params = {
@@ -190,8 +191,7 @@ def build_o365_oauth_url(settings: Settings) -> tuple[str, str]:
         "prompt": "consent",
     }
     base = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
-    qs = "&".join(f"{k}={httpx.URL('', params={k: v}).params[k]}" for k, v in params.items())
-    return f"{base}?{qs}", state
+    return f"{base}?{urlencode(params)}", state
 
 
 async def handle_o365_oauth_callback(

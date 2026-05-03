@@ -72,18 +72,20 @@ def authenticated_page(
     page.set_default_timeout(E2E_TIMEOUT_MS)
     page.set_default_navigation_timeout(E2E_TIMEOUT_MS)
 
-    # Navigate to the app — lands on /login
+    # Navigate to the app — router redirects to /login if no token, /chat otherwise
     page.goto(base_url)
     page.wait_for_load_state("domcontentloaded")
 
-    # Click Google sign-in button — Google cookies in the profile
-    # auto-complete the OAuth flow and redirect back with a token
-    google_btn = page.locator("#g_id_signin")
-    google_btn.wait_for(state="visible")
-    google_btn.click()
-
-    # Wait for OAuth redirect to complete and land on an authenticated page
-    page.wait_for_url("**/chat**", timeout=E2E_TIMEOUT_MS)
+    if "/login" in page.url:
+        # No cached JWT — click Google sign-in. Google cookies in the profile
+        # auto-complete the OAuth flow and redirect back with a token.
+        google_btn = page.locator("#g_id_signin")
+        google_btn.wait_for(state="visible")
+        google_btn.click()
+        page.wait_for_url("**/chat**", timeout=E2E_TIMEOUT_MS)
+    else:
+        # Already authenticated from a prior run — JWT is still valid in localStorage
+        pass
 
     yield page
 

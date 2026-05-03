@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import api from '@/api/client'
 
 interface Settings {
@@ -24,6 +24,7 @@ interface ExternalAccount {
 }
 
 const route = useRoute()
+const router = useRouter()
 const settings = ref<Settings>({
   ai_api_key: null,
   ai_api_base: null,
@@ -36,7 +37,7 @@ const accounts = ref<ExternalAccount[]>([])
 const saving = ref(false)
 const saved = ref(false)
 const error = ref<string | null>(null)
-const oauthStatus = ref<'success' | 'error' | null>(null)
+const oauthStatus = ref<'success' | 'error' | 'cancelled' | null>(null)
 const oauthProvider = ref<string | null>(null)
 
 interface ModelTestResult {
@@ -113,6 +114,8 @@ async function testModel() {
 async function connectGoogle() {
   if (connecting.value) return
   error.value = null
+  oauthStatus.value = null
+  oauthProvider.value = null
   connecting.value = 'google'
   try {
     const response = await api.post('/oauth/google/initiate')
@@ -126,6 +129,8 @@ async function connectGoogle() {
 async function connectO365() {
   if (connecting.value) return
   error.value = null
+  oauthStatus.value = null
+  oauthProvider.value = null
   connecting.value = 'o365'
   try {
     const response = await api.post('/oauth/o365/initiate')
@@ -144,6 +149,17 @@ onMounted(() => {
     oauthProvider.value = provider ?? null
   } else if (oauth === 'error') {
     oauthStatus.value = 'error'
+    oauthProvider.value = provider ?? null
+  } else if (oauth === 'cancelled') {
+    oauthStatus.value = 'cancelled'
+    oauthProvider.value = provider ?? null
+  } else {
+    // No OAuth result on this load
+  }
+  if (oauth) {
+    router.replace({ query: {} })
+  } else {
+    // No query to clean up
   }
   loadSettings()
   loadAccounts()
@@ -158,7 +174,10 @@ onMounted(() => {
       ✓ {{ oauthProvider ? oauthProvider.toUpperCase() : 'Account' }} connected successfully.
     </div>
     <div v-if="oauthStatus === 'error'" class="banner banner--error">
-      ✗ OAuth connection failed. Please try again.
+      ✗ {{ oauthProvider ? oauthProvider.toUpperCase() : 'OAuth' }} connection failed. Please try again.
+    </div>
+    <div v-if="oauthStatus === 'cancelled'" class="banner banner--warning">
+      {{ oauthProvider ? oauthProvider.toUpperCase() : 'OAuth' }} connection was cancelled.
     </div>
     <div v-if="error" class="banner banner--error">{{ error }}</div>
 
@@ -470,6 +489,12 @@ button[type='submit']:disabled {
   background: #fee2e2;
   color: #991b1b;
   border: 1px solid #fca5a5;
+}
+
+.banner--warning {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
 }
 
 .connect-buttons {

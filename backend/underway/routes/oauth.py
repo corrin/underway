@@ -42,16 +42,27 @@ async def initiate_google_oauth(request: Request, settings: AppSettings) -> dict
 @router.get("/google/callback")
 async def google_oauth_callback(request: Request, settings: AppSettings) -> RedirectResponse:
     """Handle the Google OAuth callback redirect."""
+    error = request.query_params.get("error")
+    if error:
+        logger.info("Google OAuth declined or failed: %s", error)
+        return RedirectResponse(url="/settings?oauth=cancelled&provider=google")
+    else:
+        pass
+
     code = request.query_params.get("code")
     state = request.query_params.get("state")
 
     if not code or not state:
         raise HTTPException(status_code=400, detail="Missing code or state parameter.")
+    else:
+        pass
 
     session = get_db_session(request)
     stored = await OAuthState.consume(session, state)
     if not stored:
         raise HTTPException(status_code=400, detail="Invalid or expired OAuth state.")
+    else:
+        pass
 
     try:
         email = await handle_google_oauth_callback(
@@ -64,7 +75,7 @@ async def google_oauth_callback(request: Request, settings: AppSettings) -> Redi
         logger.info("Google OAuth completed for %s", email)
     except Exception:
         logger.exception("Google OAuth callback failed")
-        return RedirectResponse(url="/settings?oauth=error")
+        return RedirectResponse(url="/settings?oauth=error&provider=google")
 
     return RedirectResponse(url="/settings?oauth=success&provider=google")
 
@@ -89,16 +100,27 @@ async def initiate_o365_oauth(request: Request, settings: AppSettings) -> dict[s
 @router.get("/o365/callback")
 async def o365_oauth_callback(request: Request, settings: AppSettings) -> RedirectResponse:
     """Handle the O365 OAuth callback redirect."""
+    error = request.query_params.get("error")
+    if error:
+        logger.info("O365 OAuth declined or failed: %s", error)
+        return RedirectResponse(url="/settings?oauth=cancelled&provider=o365")
+    else:
+        pass
+
     code = request.query_params.get("code")
     state = request.query_params.get("state")
 
     if not code or not state:
         raise HTTPException(status_code=400, detail="Missing code or state parameter.")
+    else:
+        pass
 
     session = get_db_session(request)
     stored = await OAuthState.consume(session, state)
     if not stored:
         raise HTTPException(status_code=400, detail="Invalid or expired OAuth state.")
+    else:
+        pass
 
     try:
         email = await handle_o365_oauth_callback(
@@ -111,6 +133,6 @@ async def o365_oauth_callback(request: Request, settings: AppSettings) -> Redire
         logger.info("O365 OAuth completed for %s", email)
     except Exception:
         logger.exception("O365 OAuth callback failed")
-        return RedirectResponse(url="/settings?oauth=error")
+        return RedirectResponse(url="/settings?oauth=error&provider=o365")
 
     return RedirectResponse(url="/settings?oauth=success&provider=o365")
