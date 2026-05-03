@@ -1,5 +1,4 @@
 backend/.venv/
-backend/__pycache__/
 backend/.mypy_cache/
 backend/.pytest_cache/
 backend/.coverage
@@ -9,4 +8,6 @@ backend/*.db
 .env.test
 .playwright-state.json
 ngrok.yml
-e2e/__pycache__/
+
+__pycache__/
+*.pyc
