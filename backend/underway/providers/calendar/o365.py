@@ -9,9 +9,7 @@ from uuid import UUID
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from underway.config import get_settings
-
-from underway.config import Settings
+from underway.config import Settings, get_settings
 from underway.models.external_account import ExternalAccount
 from underway.providers.calendar.base import CalendarProvider
 from underway.providers.calendar.models import CalendarEvent, CalendarEventCreate

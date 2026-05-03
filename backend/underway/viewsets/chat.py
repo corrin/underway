@@ -72,9 +72,7 @@ class ConversationViewSet(SessionMixin, ModelViewSet):
             raise NotFound()
 
         msg_result = await self._session.execute(
-            select(ChatMessage)
-            .where(ChatMessage.conversation_id == conversation.id)
-            .order_by(ChatMessage.sequence)
+            select(ChatMessage).where(ChatMessage.conversation_id == conversation.id).order_by(ChatMessage.sequence)
         )
         messages = list(msg_result.scalars().all())
         result_data: list[dict[str, object]] = ChatMessageSerializer(messages, many=True).data

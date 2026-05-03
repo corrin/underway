@@ -1,5 +1,12 @@
 {
   "version": "0.2.0",
+  "compounds": [
+    {
+      "name": "Full Stack",
+      "configurations": ["Backend (FastAPI)", "Frontend (Vite)", "ngrok"],
+      "stopAll": true
+    }
+  ],
   "configurations": [
     {
       "name": "Backend (FastAPI)",
@@ -18,13 +25,13 @@
       "request": "launch",
       "command": "npm run dev",
       "cwd": "${workspaceFolder}/frontend"
-    }
-  ],
-  "compounds": [
+    },
     {
-      "name": "Full Stack",
-      "configurations": ["Backend (FastAPI)", "Frontend (Vite)"],
-      "stopAll": true
+      "name": "ngrok",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "ngrok start --all --config ./ngrok.yml",
+      "cwd": "${workspaceFolder}"
     }
   ]
 }

@@ -13,7 +13,8 @@ import pytest
 from dotenv import find_dotenv, load_dotenv
 from playwright.sync_api import Page, sync_playwright
 
-load_dotenv(find_dotenv())
+load_dotenv(find_dotenv())  # BASE_URL etc. — shared with the app
+load_dotenv(find_dotenv(".env.test"))  # test-only creds — kept out of Settings
 
 # Global Playwright timeout — no individual timeout should exceed this.
 E2E_TIMEOUT_MS = 10000
@@ -21,7 +22,7 @@ E2E_TIMEOUT_MS = 10000
 # Chrome profile with saved Google session.
 # To set up: google-chrome --user-data-dir=<path>
 # Then log into Google and close the browser.
-# Add PLAYWRIGHT_CHROME_PROFILE=<path> to backend/.env
+# Add PLAYWRIGHT_CHROME_PROFILE=<path> to backend/.env.test
 CHROME_PROFILE_DIR = os.environ.get("PLAYWRIGHT_CHROME_PROFILE", "")
 BASE_URL = os.environ.get("BASE_URL", "")
 

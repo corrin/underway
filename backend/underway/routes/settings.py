@@ -6,8 +6,6 @@ import logging
 from typing import Annotated, Any
 
 import litellm
-
-logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -16,8 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from underway.auth.dependencies import get_current_user, get_db_session
 from underway.auth.jwt import JWTUser
 from underway.models.user import User
-
-import logging
 
 logger = logging.getLogger(__name__)
 
