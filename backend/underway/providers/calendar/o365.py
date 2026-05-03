@@ -9,6 +9,8 @@ from uuid import UUID
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from underway.config import get_settings
+
 from underway.config import Settings
 from underway.models.external_account import ExternalAccount
 from underway.providers.calendar.base import CalendarProvider
@@ -219,6 +221,7 @@ async def handle_o365_oauth_callback(
 
     access_token = token_data["access_token"]
     refresh_token = token_data.get("refresh_token")
+    expires_in = token_data.get("expires_in", 3600)
 
     # Get user email from Graph API
     async with httpx.AsyncClient() as client:
@@ -234,13 +237,13 @@ async def handle_o365_oauth_callback(
         session, external_email=o365_email, provider="o365", user_id=user_id
     )
 
+    from datetime import UTC, timedelta
+
     cred_data = {
         "token": access_token,
         "refresh_token": refresh_token,
-        "token_uri": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-        "client_id": settings.o365_client_id,
-        "client_secret": settings.o365_client_secret,
         "scopes": " ".join(O365_SCOPES),
+        "expires_at": datetime.now(UTC) + timedelta(seconds=expires_in),
     }
 
     if account:
@@ -276,8 +279,8 @@ async def _refresh_o365_token(account: ExternalAccount) -> bool:
             data={
                 "grant_type": "refresh_token",
                 "refresh_token": account.refresh_token,
-                "client_id": account.client_id or "",
-                "client_secret": account.client_secret or "",
+                "client_id": get_settings().o365_client_id,
+                "client_secret": get_settings().o365_client_secret,
                 "scope": account.scopes or "",
             },
         )

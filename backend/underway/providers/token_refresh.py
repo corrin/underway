@@ -8,29 +8,48 @@ from datetime import UTC, datetime, timedelta
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from sqlalchemy import delete
+
+from underway.config import Settings, get_settings
 from underway.models.external_account import ExternalAccount
+from underway.models.oauth_state import OAuthState
 
 logger = logging.getLogger(__name__)
 
 REFRESH_INTERVAL_SECONDS = 30 * 60  # 30 minutes
-TOKEN_AGE_CUTOFF_MINUTES = 45
+REFRESH_AHEAD_MINUTES = 15  # refresh tokens expiring within this window
+
+
+async def purge_expired_oauth_states(session: AsyncSession) -> int:
+    """Delete oauth_state rows past their expiry. Returns number of rows deleted."""
+    result = await session.execute(
+        delete(OAuthState).where(OAuthState.expires_at < datetime.now(UTC))
+    )
+    count: int = result.rowcount  # type: ignore[assignment]
+    if count:
+        logger.info("Purged %d expired oauth_state rows", count)
+    return count
 
 
 async def refresh_soon_expiring_tokens(
     session: AsyncSession,
+    settings: Settings | None = None,
 ) -> dict[str, int]:
     """Find accounts with tokens expiring soon and refresh them."""
-    cutoff = datetime.now(UTC) - timedelta(minutes=TOKEN_AGE_CUTOFF_MINUTES)
+    cutoff = datetime.now(UTC) + timedelta(minutes=REFRESH_AHEAD_MINUTES)
 
     result = await session.execute(
         select(ExternalAccount).where(
             ExternalAccount.needs_reauth.is_(False),
             ExternalAccount.refresh_token.is_not(None),
             ExternalAccount.provider.in_(["google", "o365"]),
-            ExternalAccount.last_sync < cutoff,
+            or_(
+                ExternalAccount.expires_at.is_(None),
+                ExternalAccount.expires_at < cutoff,
+            ),
         )
     )
     accounts = list(result.scalars().all())
@@ -43,9 +62,10 @@ async def refresh_soon_expiring_tokens(
     success = 0
     failed = 0
 
+    cfg = settings or get_settings()
     for account in accounts:
         try:
-            await _refresh_account_token(session, account)
+            await _refresh_account_token(session, account, cfg)
             success += 1
         except Exception:
             logger.exception("Failed to refresh token for %s", account.external_email)
@@ -57,7 +77,11 @@ async def refresh_soon_expiring_tokens(
     return {"success": success, "failed": failed}
 
 
-async def _refresh_account_token(session: AsyncSession, account: ExternalAccount) -> None:
+async def _refresh_account_token(
+    session: AsyncSession,
+    account: ExternalAccount,
+    settings: Settings,
+) -> None:
     """Refresh the OAuth token for a single account."""
     if account.provider not in ("google", "o365"):
         raise ValueError(f"Unsupported provider for token refresh: {account.provider}")
@@ -67,11 +91,13 @@ async def _refresh_account_token(session: AsyncSession, account: ExternalAccount
             token=account.token,
             refresh_token=account.refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
-            client_id=account.client_id,
-            client_secret=account.client_secret,
+            client_id=settings.google_client_id,
+            client_secret=settings.google_client_secret,
         )
-        creds.refresh(Request())
+        await asyncio.to_thread(creds.refresh, Request())  # blocking HTTP — must be off the event loop
         account.token = creds.token
+        if creds.expiry:
+            account.expires_at = creds.expiry.replace(tzinfo=UTC)
         account.last_sync = datetime.now(UTC)
         logger.info("Refreshed Google token for %s", account.external_email)
         return
@@ -79,34 +105,40 @@ async def _refresh_account_token(session: AsyncSession, account: ExternalAccount
     # provider == "o365"
     import httpx
 
-    resp = await httpx.AsyncClient().post(
-        "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-        data={
-            "grant_type": "refresh_token",
-            "refresh_token": account.refresh_token,
-            "client_id": account.client_id,
-            "client_secret": account.client_secret,
-            "scope": account.scopes or "",
-        },
-    )
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": account.refresh_token,
+                "client_id": settings.o365_client_id,
+                "client_secret": settings.o365_client_secret,
+                "scope": account.scopes or "",
+            },
+        )
     resp.raise_for_status()
     data = resp.json()
     account.token = data["access_token"]
     if "refresh_token" in data:
         account.refresh_token = data["refresh_token"]
+    if "expires_in" in data:
+        account.expires_at = datetime.now(UTC) + timedelta(seconds=data["expires_in"])
     account.last_sync = datetime.now(UTC)
     logger.info("Refreshed O365 token for %s", account.external_email)
 
 
 async def token_refresh_loop(
     session_factory: async_sessionmaker[AsyncSession],
+    settings: Settings | None = None,
 ) -> None:
     """Background loop that refreshes tokens every 30 minutes."""
+    cfg = settings or get_settings()
     logger.info("Starting token refresh background loop")
     while True:
         try:
             async with session_factory() as session:
-                await refresh_soon_expiring_tokens(session)
+                await refresh_soon_expiring_tokens(session, cfg)
+                await purge_expired_oauth_states(session)
                 await session.commit()
         except Exception:
             logger.exception("Error in token refresh loop")

@@ -30,6 +30,7 @@ DbSession = Annotated[AsyncSession, Depends(get_db_session)]
 CurrentUser = Annotated[JWTUser, Depends(get_current_user)]
 
 MAX_TOOL_ROUNDS = 10
+MAX_HISTORY_MESSAGES = 40  # cap older messages sent to LLM to avoid context overflow
 
 SYSTEM_PROMPT = (
     "You are Underway, a task management assistant. You help users:\n"
@@ -89,7 +90,8 @@ async def _prepare_and_stream(
                 return
 
             ai_api_key = user.ai_api_key
-            llm_model = user.llm_model or "gpt-4o"
+            ai_api_base = user.ai_api_base or None
+            llm_model = user.llm_model or ""  # validated non-empty by the chat endpoint before streaming begins
             ai_instructions = user.ai_instructions
 
             # Get or create conversation
@@ -132,8 +134,11 @@ async def _prepare_and_stream(
             await session.flush()
             next_seq += 1
 
-            # Build message list from plain dicts
-            history_dicts = [msg.to_dict() for msg in existing_messages]
+            # Build message list from plain dicts, capping history to avoid context overflow.
+            # Always keep the most recent MAX_HISTORY_MESSAGES messages so the LLM
+            # has recent context; older messages are silently dropped.
+            capped = existing_messages[-MAX_HISTORY_MESSAGES:] if len(existing_messages) > MAX_HISTORY_MESSAGES else existing_messages
+            history_dicts = [msg.to_dict() for msg in capped]
             history_dicts.append({"role": "user", "content": message})
             messages = _build_messages(SYSTEM_PROMPT, ai_instructions, history_dicts)
 
@@ -147,6 +152,7 @@ async def _prepare_and_stream(
                     tools=TOOL_DEFINITIONS,
                     stream=True,
                     api_key=ai_api_key,
+                    base_url=ai_api_base,
                 )
 
                 content_parts: list[str] = []
@@ -278,10 +284,10 @@ async def _prepare_and_stream(
 
                 yield _sse_event({"type": "done", "conversation_id": str(conv_id)})
                 break
-        except Exception as exc:
+        except Exception:
             logger.exception("Unhandled error in SSE stream for user %s", user_id)
             await session.rollback()
-            yield _sse_event({"type": "error", "message": str(exc)})
+            yield _sse_event({"type": "error", "message": "An unexpected error occurred. Please try again."})
 
 
 @router.post("/chat")
@@ -309,7 +315,12 @@ async def chat(
         if not user.ai_api_key:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="AI API key not configured",
+                detail="AI API key not configured. Please set it in Settings.",
+            )
+        if not user.llm_model:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="AI model not configured. Please set it in Settings.",
             )
 
     return StreamingResponse(

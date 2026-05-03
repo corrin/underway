@@ -182,5 +182,10 @@ class TestConversationModel:
         result = await db_session.execute(select(Conversation).where(Conversation.id == convo.id))
         loaded = result.scalar_one()
         assert loaded.title == "Test convo"
-        assert len(loaded.messages) == 1
-        assert loaded.messages[0].content == "Hello"
+        # messages use lazy='noload' — fetch explicitly
+        msg_result = await db_session.execute(
+            select(ChatMessage).where(ChatMessage.conversation_id == convo.id)
+        )
+        msgs = list(msg_result.scalars().all())
+        assert len(msgs) == 1
+        assert msgs[0].content == "Hello"

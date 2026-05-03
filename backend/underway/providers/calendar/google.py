@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -16,6 +17,8 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from underway.config import get_settings
 
 from underway.config import Settings
 from underway.models.external_account import ExternalAccount
@@ -52,12 +55,14 @@ class GoogleCalendarProvider(CalendarProvider):
             token=account.token,
             refresh_token=account.refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
-            client_id=account.client_id,
-            client_secret=account.client_secret,
+            client_id=get_settings().google_client_id,
+            client_secret=get_settings().google_client_secret,
         )
         if creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            await asyncio.to_thread(creds.refresh, Request())
             account.token = creds.token
+            if creds.expiry:
+                account.expires_at = creds.expiry.replace(tzinfo=UTC)
             await session.flush()
 
         return creds
@@ -75,19 +80,21 @@ class GoogleCalendarProvider(CalendarProvider):
             logger.warning("No valid Google credentials for %s (user %s)", email, user_id)
             return []
 
-        service = build("calendar", "v3", credentials=creds)
+        service = await asyncio.to_thread(build, "calendar", "v3", credentials=creds)
         try:
-            result = (
-                service.events()
-                .list(
-                    calendarId="primary",
-                    timeMin=start.isoformat(),
-                    timeMax=end.isoformat(),
-                    singleEvents=True,
-                    orderBy="startTime",
+            def _list_events() -> dict:  # type: ignore[type-arg]
+                return (
+                    service.events()
+                    .list(
+                        calendarId="primary",
+                        timeMin=start.isoformat(),
+                        timeMax=end.isoformat(),
+                        singleEvents=True,
+                        orderBy="startTime",
+                    )
+                    .execute()
                 )
-                .execute()
-            )
+            result = await asyncio.to_thread(_list_events)
         except HttpError as exc:
             logger.error("Google Calendar API error for %s: %s", email, exc)
             account = await ExternalAccount.get_by_email_provider_and_user(
@@ -134,7 +141,7 @@ class GoogleCalendarProvider(CalendarProvider):
             msg = f"No valid Google credentials for {email}"
             raise RuntimeError(msg)
 
-        service = build("calendar", "v3", credentials=creds)
+        service = await asyncio.to_thread(build, "calendar", "v3", credentials=creds)
         start_dt: EventDateTime = {"dateTime": event.start.isoformat(), "timeZone": "UTC"}
         end_dt: EventDateTime = {"dateTime": event.end.isoformat(), "timeZone": "UTC"}
         body: Event = {
@@ -147,7 +154,7 @@ class GoogleCalendarProvider(CalendarProvider):
         if event.description:
             body["description"] = event.description
 
-        created = service.events().insert(calendarId="primary", body=body).execute()
+        created = await asyncio.to_thread(lambda: service.events().insert(calendarId="primary", body=body).execute())
         return CalendarEvent(
             id=created["id"],
             title=created.get("summary", event.title),
@@ -169,9 +176,9 @@ class GoogleCalendarProvider(CalendarProvider):
         if not creds:
             return False
 
-        service = build("calendar", "v3", credentials=creds)
+        service = await asyncio.to_thread(build, "calendar", "v3", credentials=creds)
         try:
-            service.events().delete(calendarId="primary", eventId=event_id).execute()
+            await asyncio.to_thread(lambda: service.events().delete(calendarId="primary", eventId=event_id).execute())
         except HttpError:
             logger.exception("Failed to delete Google event %s for %s", event_id, email)
             return False
@@ -183,9 +190,14 @@ class GoogleCalendarProvider(CalendarProvider):
 # ---------------------------------------------------------------------------
 
 
-def build_google_oauth_url(settings: Settings) -> tuple[str, str]:
-    """Return (authorization_url, state) for the Google OAuth consent screen."""
-    flow = Flow.from_client_config(
+def _make_google_flow(settings: Settings, *, autogenerate_code_verifier: bool = False) -> Flow:
+    """Build a Google OAuth Flow from app settings.
+
+    Pass autogenerate_code_verifier=True when building the initiation flow so
+    PKCE is explicitly enabled.  Leave it False for the callback reconstruction
+    (the verifier is re-injected from the DB instead).
+    """
+    return Flow.from_client_config(
         {
             "web": {
                 "client_id": settings.google_client_id,
@@ -197,36 +209,41 @@ def build_google_oauth_url(settings: Settings) -> tuple[str, str]:
         },
         scopes=GOOGLE_CALENDAR_SCOPES,
         redirect_uri=settings.google_redirect_uri,
+        autogenerate_code_verifier=autogenerate_code_verifier,
     )
+
+
+def build_google_oauth_url(settings: Settings) -> tuple[str, str, str | None]:
+    """Return (authorization_url, state, code_verifier) for the Google OAuth consent screen.
+
+    The code_verifier must be persisted by the caller (e.g. in the DB) and
+    passed back into handle_google_oauth_callback to complete the PKCE exchange.
+    It may be None if the installed flow version does not use PKCE.
+    """
+    # autogenerate_code_verifier=True is the default in from_client_config but
+    # we pass it explicitly so the intent is clear and not sensitive to library defaults.
+    flow = _make_google_flow(settings, autogenerate_code_verifier=True)
     authorization_url, state = flow.authorization_url(
         prompt="consent",
         access_type="offline",
     )
-    return authorization_url, state
+    # flow.code_verifier is set by authorization_url() when autogenerate_code_verifier=True
+    code_verifier: str | None = flow.code_verifier or None
+    return authorization_url, state, code_verifier
 
 
 async def handle_google_oauth_callback(
     code: str,
-    state: str,
-    settings: Settings,
     session: AsyncSession,
     user_id: UUID,
+    settings: Settings,
+    code_verifier: str | None = None,
 ) -> str:
     """Exchange the authorization code for tokens, store them, return the calendar email."""
-    flow = Flow.from_client_config(
-        {
-            "web": {
-                "client_id": settings.google_client_id,
-                "client_secret": settings.google_client_secret,
-                "redirect_uris": [settings.google_redirect_uri],
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-            }
-        },
-        scopes=GOOGLE_CALENDAR_SCOPES,
-        redirect_uri=settings.google_redirect_uri,
-        state=state,
-    )
+    flow = _make_google_flow(settings)
+    if code_verifier:
+        # Re-inject the PKCE code_verifier so flow.fetch_token sends it in the token exchange
+        flow.code_verifier = code_verifier
     flow.fetch_token(code=code)
     creds = flow.credentials
 
@@ -244,10 +261,8 @@ async def handle_google_oauth_callback(
     cred_data = {
         "token": creds.token,
         "refresh_token": creds.refresh_token,
-        "token_uri": creds.token_uri,
-        "client_id": creds.client_id,
-        "client_secret": creds.client_secret,
         "scopes": " ".join(creds.scopes) if creds.scopes else "",
+        "expires_at": creds.expiry.replace(tzinfo=UTC) if creds.expiry else None,
     }
 
     if account:
