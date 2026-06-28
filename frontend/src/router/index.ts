@@ -19,6 +19,16 @@ const router = createRouter({
       component: () => import('../views/AuthCallbackView.vue'),
     },
     {
+      path: '/privacy',
+      name: 'privacy',
+      component: () => import('../views/PrivacyView.vue'),
+    },
+    {
+      path: '/terms',
+      name: 'terms',
+      component: () => import('../views/TermsView.vue'),
+    },
+    {
       path: '/tasks',
       name: 'tasks',
       component: () => import('../views/TasksView.vue'),
@@ -41,9 +51,12 @@ const router = createRouter({
   ],
 })
 
+// Routes reachable without authentication (login + public legal pages).
+const PUBLIC_ROUTES = new Set(['login', 'auth-callback', 'privacy', 'terms'])
+
 router.beforeEach((to) => {
   const authStore = useAuthStore()
-  if (to.name !== 'login' && to.name !== 'auth-callback' && !authStore.isAuthenticated()) {
+  if (!PUBLIC_ROUTES.has(to.name as string) && !authStore.isAuthenticated()) {
     return { name: 'login' }
   }
   if (to.name === 'login' && authStore.isAuthenticated()) {
