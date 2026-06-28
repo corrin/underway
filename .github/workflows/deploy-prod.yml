@@ -15,22 +15,33 @@ jobs:
     steps:
       - name: Deploy to Oracle Cloud
         uses: appleboy/ssh-action@v1
+        env:
+          # Passed as a value (not interpolated into the script text) to avoid
+          # template-injection; forwarded to the remote shell via `envs` below.
+          REF: ${{ github.event.inputs.ref }}
         with:
           host: ${{ secrets.OC_SSH_HOST }}
           username: ${{ secrets.OC_SSH_USER }}
           key: ${{ secrets.OC_SSH_KEY }}
+          envs: REF
           script: |
             set -euo pipefail
+            # Reject anything that isn't a plain git ref before it reaches a shell.
+            if ! printf '%s' "$REF" | grep -qE '^[A-Za-z0-9._/-]+$'; then
+              echo "Refusing to deploy unsafe ref: $REF" >&2
+              exit 1
+            fi
             # /opt/underway is owned by the `underway` user, which also runs the
-            # service. Build and migrate AS that user; the ssh user `ubuntu` only
-            # holds the sudo rights to switch users and restart services.
-            sudo -u underway -H bash -s <<'DEPLOY'
+            # service. Build and migrate AS that user (ref passed as $1); the ssh
+            # user `ubuntu` only holds sudo rights to switch users and restart.
+            sudo -u underway -H bash -s "$REF" <<'DEPLOY'
             set -euo pipefail
+            REF="$1"
             export PATH="$HOME/.local/bin:$PATH"
             cd /opt/underway
             git fetch origin
-            git checkout ${{ github.event.inputs.ref }}
-            git pull --ff-only origin ${{ github.event.inputs.ref }}
+            git checkout "$REF"
+            git pull --ff-only origin "$REF"
 
             cd backend
             poetry install --no-interaction --no-ansi
