@@ -526,6 +526,14 @@ function priorityLabel(task: DashboardTask) {
     flex-direction: column;
   }
 
+  /*
+   * KNOWN ISSUE (mobile, needs proper design): hiding the right sidebar
+   * removes the ONLY way to reach today's calendar and tasks below 768px —
+   * there is currently no alternative surface for them on mobile. This is a
+   * stopgap, not the intended behaviour. Proper fix: collapse the dashboard
+   * (e.g. a toggle/drawer) or reflow it below the chat instead of removing it.
+   * Flagged by CodeRabbit on PR #52.
+   */
   .chat-sidebar--right {
     display: none;
   }
