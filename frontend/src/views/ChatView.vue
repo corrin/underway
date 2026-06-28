@@ -1,16 +1,26 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import ChatMessage from '@/components/ChatMessage.vue'
 import { useChatStore, type DashboardTask } from '@/stores/chat'
+import { useCalendarStore } from '@/stores/calendar'
 
 const store = useChatStore()
+const calendarStore = useCalendarStore()
 const inputText = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
+const sidebarOpen = ref(false)
 
 onMounted(() => {
   store.loadConversations()
   store.loadDashboard()
+
+  const now = new Date()
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString()
+  calendarStore.loadEvents(startOfDay, endOfDay)
 })
+
+const todayEvents = computed(() => calendarStore.events)
 
 watch(
   () => store.messages.length,
@@ -18,6 +28,8 @@ watch(
     nextTick(() => {
       if (messagesContainer.value) {
         messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+      } else {
+        // no-op: container not yet mounted
       }
     })
   },
@@ -29,6 +41,8 @@ watch(
     nextTick(() => {
       if (messagesContainer.value) {
         messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+      } else {
+        // no-op: container not yet mounted
       }
     })
   },
@@ -45,14 +59,34 @@ function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
     handleSend()
+  } else {
+    // no-op: other keys handled by textarea default behavior
   }
+}
+
+function formatTime(dateStr: string) {
+  return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function priorityClass(task: DashboardTask) {
+  if (task.priority === 1) return 'priority-p1'
+  if (task.priority === 2) return 'priority-p2'
+  if (task.priority === 3) return 'priority-p3'
+  return 'priority-p4'
+}
+
+function priorityLabel(task: DashboardTask) {
+  if (task.priority === 1) return 'P1'
+  if (task.priority === 2) return 'P2'
+  if (task.priority === 3) return 'P3'
+  return 'P4'
 }
 </script>
 
 <template>
   <div class="chat-layout">
-    <!-- Conversation sidebar -->
-    <aside class="chat-sidebar chat-sidebar--left">
+    <!-- Collapsible conversation sidebar -->
+    <aside class="chat-sidebar chat-sidebar--left" :class="{ open: sidebarOpen }">
       <button class="btn-new-chat" @click="store.startNewConversation()">+ New Chat</button>
       <div class="conversation-list">
         <div
@@ -93,95 +127,144 @@ function handleKeydown(e: KeyboardEvent) {
           <ChatMessage role="assistant" :content="store.streamingContent" :tool-calls="null" />
         </div>
         <div v-if="store.isStreaming && !store.streamingContent" class="chat-typing">
-          Thinking...
+          Assistant is thinking...
         </div>
       </div>
 
       <div class="chat-input-area">
+        <button
+          class="btn-sidebar-toggle"
+          title="Toggle conversations"
+          @click="sidebarOpen = !sidebarOpen"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="5" width="14" height="1.5" rx="0.75" fill="currentColor" />
+            <rect x="3" y="9.25" width="14" height="1.5" rx="0.75" fill="currentColor" />
+            <rect x="3" y="13.5" width="14" height="1.5" rx="0.75" fill="currentColor" />
+          </svg>
+        </button>
         <textarea
           v-model="inputText"
           class="chat-input"
           placeholder="Type a message..."
-          rows="2"
+          rows="1"
           :disabled="store.isStreaming"
           @keydown="handleKeydown"
         />
         <button
           class="btn-send"
+          title="Send message"
           :disabled="!inputText.trim() || store.isStreaming"
           @click="handleSend"
         >
-          Send
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
         </button>
       </div>
     </main>
 
     <!-- Dashboard sidebar -->
     <aside class="chat-sidebar chat-sidebar--right">
-      <h3 class="sidebar-heading">Dashboard</h3>
+      <div class="dashboard-section">
+        <h4 class="dashboard-section-title">Today's Calendar</h4>
+        <div v-if="calendarStore.loading" class="dashboard-empty">Loading...</div>
+        <div v-else-if="todayEvents.length === 0" class="dashboard-empty">No events today.</div>
+        <div v-else class="dashboard-cards">
+          <div v-for="event in todayEvents" :key="event.id" class="event-card">
+            <div class="event-time">{{ formatTime(event.start) }} – {{ formatTime(event.end) }}</div>
+            <div class="event-title">{{ event.title }}</div>
+            <div v-if="event.location" class="event-location">{{ event.location }}</div>
+          </div>
+        </div>
+      </div>
 
       <template v-if="store.dashboard">
         <div class="dashboard-section">
-          <h4>Prioritized</h4>
-          <ul class="dashboard-list">
-            <li v-for="(task) in (store.dashboard.tasks.prioritized as DashboardTask[])" :key="task.id">
-              {{ task.title || 'Untitled task' }}
-            </li>
-          </ul>
+          <h4 class="dashboard-section-title">Prioritized Tasks</h4>
           <div v-if="store.dashboard.tasks.prioritized.length === 0" class="dashboard-empty">
-            None
+            No prioritized tasks.
+          </div>
+          <div v-else class="dashboard-cards">
+            <div
+              v-for="task in (store.dashboard.tasks.prioritized as DashboardTask[])"
+              :key="task.id"
+              class="task-card"
+            >
+              <span class="priority-badge" :class="priorityClass(task)">
+                {{ priorityLabel(task) }}
+              </span>
+              <span class="task-title">{{ task.title || 'Untitled task' }}</span>
+            </div>
           </div>
         </div>
 
         <div class="dashboard-section">
-          <h4>Unprioritized</h4>
-          <ul class="dashboard-list">
-            <li v-for="(task) in (store.dashboard.tasks.unprioritized as DashboardTask[])" :key="task.id">
-              {{ task.title || 'Untitled task' }}
-            </li>
-          </ul>
+          <h4 class="dashboard-section-title">Unprioritized Tasks</h4>
           <div v-if="store.dashboard.tasks.unprioritized.length === 0" class="dashboard-empty">
-            None
+            No unprioritized tasks.
+          </div>
+          <div v-else class="dashboard-cards">
+            <div
+              v-for="task in (store.dashboard.tasks.unprioritized as DashboardTask[])"
+              :key="task.id"
+              class="task-card"
+            >
+              <span class="task-title">{{ task.title || 'Untitled task' }}</span>
+            </div>
           </div>
         </div>
       </template>
 
       <div v-else class="dashboard-empty">Loading dashboard...</div>
-
-      <div class="dashboard-section">
-        <h4>Calendar</h4>
-        <div class="dashboard-empty">Coming soon</div>
-      </div>
     </aside>
   </div>
 </template>
 
 <style scoped>
 .chat-layout {
-  display: grid;
-  grid-template-columns: 240px 1fr 260px;
+  display: flex;
   height: calc(100vh - 60px);
   overflow: hidden;
+  position: relative;
 }
 
-/* Sidebars */
-.chat-sidebar {
-  border-right: 1px solid var(--color-border, #ddd);
+/* Left sidebar — collapsible overlay */
+.chat-sidebar--left {
+  width: 240px;
+  min-width: 240px;
+  border-right: 1px solid var(--color-border);
   padding: 1rem;
   overflow-y: auto;
-  background: var(--color-background-soft, #f9f9f9);
+  background: var(--color-background-soft);
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
 }
 
+.chat-sidebar--left.open {
+  transform: translateX(0);
+}
+
+/* Right sidebar — dashboard panel */
 .chat-sidebar--right {
-  border-right: none;
-  border-left: 1px solid var(--color-border, #ddd);
+  flex: 0 0 40%;
+  border-left: 1px solid var(--color-border);
+  padding: 1rem;
+  overflow-y: auto;
+  background: var(--color-background-soft);
 }
 
 .btn-new-chat {
   width: 100%;
   padding: 0.5rem;
-  background: var(--color-text, #333);
-  color: var(--color-background, #fff);
+  background: var(--color-text);
+  color: var(--color-background);
   border: none;
   border-radius: 6px;
   font-weight: 600;
@@ -207,12 +290,12 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 .conversation-item:hover {
-  background: var(--color-background-mute, #eee);
+  background: var(--color-background-mute);
 }
 
 .conversation-item.active {
-  background: #dbeafe;
-  color: #1e40af;
+  background: var(--color-primary);
+  color: #fff;
 }
 
 .conversation-title {
@@ -239,9 +322,11 @@ function handleKeydown(e: KeyboardEvent) {
 
 /* Chat main area */
 .chat-main {
+  flex: 0 0 60%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
 }
 
 .chat-error {
@@ -255,6 +340,9 @@ function handleKeydown(e: KeyboardEvent) {
   flex: 1;
   overflow-y: auto;
   padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .chat-empty {
@@ -268,38 +356,69 @@ function handleKeydown(e: KeyboardEvent) {
   color: var(--color-text-muted, #888);
   font-style: italic;
   padding: 0.5rem 1rem;
+  align-self: flex-start;
 }
 
 .chat-input-area {
   display: flex;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border-top: 1px solid var(--color-border, #ddd);
-  background: var(--color-background, #fff);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-background);
+  align-items: flex-end;
+}
+
+.btn-sidebar-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted, #888);
+  padding: 0.5rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-sidebar-toggle:hover {
+  background: var(--color-background-mute);
+  color: var(--color-text);
 }
 
 .chat-input {
   flex: 1;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-border, #ddd);
-  border-radius: 6px;
-  background: var(--color-background, #fff);
-  color: var(--color-text, #333);
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1.25rem;
+  background: var(--color-background);
+  color: var(--color-text);
   font-size: 0.9rem;
   resize: none;
   font-family: inherit;
 }
 
+.chat-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
 .btn-send {
-  padding: 0.5rem 1.25rem;
-  background: var(--color-text, #333);
-  color: var(--color-background, #fff);
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
   border: none;
-  border-radius: 6px;
-  font-weight: 600;
   cursor: pointer;
-  font-size: 0.85rem;
-  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-send:hover {
+  background: var(--color-primary-hover);
 }
 
 .btn-send:disabled {
@@ -308,33 +427,91 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 /* Dashboard sidebar */
-.sidebar-heading {
-  margin: 0 0 1rem;
-  font-size: 1rem;
-}
-
 .dashboard-section {
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
-.dashboard-section h4 {
-  margin: 0 0 0.3rem;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  opacity: 0.7;
+.dashboard-section-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding-bottom: 0.4rem;
+  border-bottom: 2px solid var(--color-border);
 }
 
-.dashboard-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.dashboard-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.event-card {
+  background: var(--color-background);
+  border-left: 4px solid var(--color-primary);
+  border-radius: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.event-time {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #6c757d);
+  margin-bottom: 0.15rem;
+}
+
+.event-title {
+  font-weight: 600;
   font-size: 0.85rem;
 }
 
-.dashboard-list li {
-  padding: 0.3rem 0;
-  border-bottom: 1px solid var(--color-border, #eee);
+.event-location {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #6c757d);
+  margin-top: 0.15rem;
+}
+
+.task-card {
+  background: var(--color-background);
+  border-radius: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.task-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.priority-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.2rem;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.priority-p1 {
+  background: #dc3545;
+}
+
+.priority-p2 {
+  background: #fd7e14;
+}
+
+.priority-p3 {
+  background: #ffc107;
+  color: #212529;
+}
+
+.priority-p4 {
+  background: #6c757d;
 }
 
 .dashboard-empty {
@@ -346,11 +523,15 @@ function handleKeydown(e: KeyboardEvent) {
 /* Responsive */
 @media (max-width: 768px) {
   .chat-layout {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 
-  .chat-sidebar {
+  .chat-sidebar--right {
     display: none;
+  }
+
+  .chat-main {
+    flex: 1;
   }
 }
 </style>
