@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import api from '@/api/client'
+import router from '@/router'
 
 export interface User {
   id: string
@@ -37,6 +38,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = null
     user.value = null
     localStorage.removeItem('token')
+    router.push('/login')
   }
 
   const isAuthenticated = () => !!token.value

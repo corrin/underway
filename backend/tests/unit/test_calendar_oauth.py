@@ -54,3 +54,21 @@ class TestO365OAuthUrl:
         )
         url, _ = build_o365_oauth_url(settings)
         assert "Calendars" in url
+
+    def test_url_is_properly_percent_encoded(self) -> None:
+        """Scope contains spaces and the redirect URI contains :// — both must
+        be percent-encoded so the browser sends a syntactically valid URL."""
+        from underway.providers.calendar.o365 import build_o365_oauth_url
+
+        settings = Settings(
+            o365_client_id="test-id",
+            o365_client_secret="test-secret",
+            o365_redirect_uri="https://underway-lakeland.ngrok.io/api/oauth/o365/callback",
+        )
+        url, _ = build_o365_oauth_url(settings)
+        # No raw spaces in the query string
+        assert " " not in url.split("?", 1)[1]
+        # Scope spaces encoded as + or %20
+        assert ("scope=https%3A" in url) or ("scope=https%3a" in url)
+        # Redirect URI is percent-encoded
+        assert "redirect_uri=https%3A%2F%2F" in url
