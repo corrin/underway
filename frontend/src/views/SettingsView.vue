@@ -2,6 +2,9 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api/client'
+import { useTheme } from '@/composables/useTheme'
+
+const { theme, setTheme } = useTheme()
 
 interface Settings {
   ai_api_key: string | null
@@ -180,6 +183,24 @@ onMounted(() => {
       {{ oauthProvider ? oauthProvider.toUpperCase() : 'OAuth' }} connection was cancelled.
     </div>
     <div v-if="error" class="banner banner--error">{{ error }}</div>
+
+    <section class="appearance-section">
+      <h2>Appearance</h2>
+      <div class="theme-options">
+        <label class="theme-option">
+          <input type="radio" name="theme" value="light" :checked="theme === 'light'" @change="setTheme('light')" />
+          Light
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="dark" :checked="theme === 'dark'" @change="setTheme('dark')" />
+          Dark
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="auto" :checked="theme === 'auto'" @change="setTheme('auto')" />
+          Auto (system default)
+        </label>
+      </div>
+    </section>
 
     <form class="settings-form" @submit.prevent="saveSettings">
       <div class="field">
@@ -517,5 +538,23 @@ button[type='submit']:disabled {
 
 .btn-connect:hover {
   background: var(--color-background-soft);
+}
+
+.appearance-section {
+  margin-bottom: 2rem;
+}
+
+.theme-options {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.95rem;
 }
 </style>

@@ -5,6 +5,22 @@
     <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vite App</title>
+    <!--
+      Bootstrap the theme before first paint to avoid a light-palette flash for
+      dark / auto-on-dark users. Mirrors the validation in composables/useTheme.ts;
+      keep the two in sync.
+    -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('theme')
+          document.documentElement.dataset.theme =
+            t === 'light' || t === 'dark' || t === 'auto' ? t : 'auto'
+        } catch (e) {
+          document.documentElement.dataset.theme = 'auto'
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>
