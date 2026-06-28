@@ -75,7 +75,7 @@ ul {
 }
 
 .back-link {
-  color: var(--color-text-muted, #888);
+  color: var(--color-text-muted, #595959);
   text-decoration: none;
   font-size: 0.9rem;
 }

@@ -33,6 +33,16 @@ if [[ -z "$match" ]]; then
 fi
 
 trace_file="$match/trace.zip"
+if [[ ! -f "$trace_file" ]]; then
+    echo "No trace.zip in $match"
+    exit 1
+fi
+
+if [[ "$count" != "all" && ! "$count" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Count must be 'all' or a positive integer (got '$count')."
+    exit 1
+fi
+
 out_dir="/tmp/e2e-screenshots/$(basename "$match")"
 rm -rf "$out_dir"
 mkdir -p "$out_dir"

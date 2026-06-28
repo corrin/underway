@@ -69,10 +69,10 @@ with zipfile.ZipFile('$trace_file') as z:
     out_dir = Path('/tmp/e2e-screenshots')
     out_dir.mkdir(exist_ok=True)
 
-    # Extract last 5 screenshots
-    for jpg in jpgs[-5:]:
-        z.extract(jpg, out_dir)
-        print(f'{out_dir}/{jpg}')
+    # Extract the last screenshot only
+    last = jpgs[-1]
+    z.extract(last, out_dir)
+    print(f'{out_dir}/{last}')
 "
     exit 0
 fi
