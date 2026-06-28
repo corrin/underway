@@ -135,6 +135,7 @@ function priorityLabel(task: DashboardTask) {
         <button
           class="btn-sidebar-toggle"
           title="Toggle conversations"
+          aria-label="Toggle conversations"
           @click="sidebarOpen = !sidebarOpen"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -154,6 +155,7 @@ function priorityLabel(task: DashboardTask) {
         <button
           class="btn-send"
           title="Send message"
+          aria-label="Send message"
           :disabled="!inputText.trim() || store.isStreaming"
           @click="handleSend"
         >
