@@ -62,10 +62,15 @@ jobs:
           username: ${{ secrets.OC_SSH_USER }}
           key: ${{ secrets.OC_SSH_KEY }}
           script: |
-            sleep 5
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/api/health)
-            if [ "$STATUS" -ne 200 ]; then
-              echo "Health check failed with status $STATUS"
-              exit 1
-            fi
-            echo "Health check passed (HTTP $STATUS)"
+            # Poll until the service is back up — a restart takes ~10s, so a
+            # single fixed sleep races the app's startup and false-fails.
+            for i in $(seq 1 30); do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/api/health || true)
+              if [ "$STATUS" = "200" ]; then
+                echo "Health check passed (HTTP 200) after ${i} attempt(s)"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "Health check failed (last status: ${STATUS:-none})" >&2
+            exit 1
