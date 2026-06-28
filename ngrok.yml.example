@@ -3,6 +3,6 @@ authtoken: YOUR_NGROK_AUTHTOKEN
 
 tunnels:
   dev:
-    addr: 5173
+    addr: 6173
     proto: http
     domain: underway-lakeland.ngrok.io

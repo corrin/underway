@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     o365_client_id: str = ""
     o365_client_secret: str = ""
     o365_redirect_uri: str = ""
-    base_url: str = "http://localhost:8000"
-    allowed_origins: str = "http://localhost:5173"  # comma-separated list
+    base_url: str = "http://localhost:9000"
+    allowed_origins: str = "http://localhost:6173"  # comma-separated list
     debug: bool = False
     testing: bool = False
 
