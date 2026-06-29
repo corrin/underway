@@ -11,10 +11,55 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from underway.models.external_account import PROVIDER_TO_TASK, ExternalAccount
 from underway.models.task import Task
+from underway.providers.task_manager import TaskManager
 from underway.providers.task_provider import ProviderTask
 
 logger = logging.getLogger(__name__)
+
+
+async def sync_all_task_accounts(
+    session: AsyncSession,
+    user_id: UUID,
+    task_manager: TaskManager,
+) -> dict[str, int]:
+    """Sync every task-enabled external account for a user into the combined task list.
+
+    Resilient: a failure on one account is logged and counted but does not abort the rest.
+    Returns a summary with the number of accounts processed, tasks upserted, and failures.
+    """
+    accounts = await ExternalAccount.get_task_accounts_for_user(session, user_id)
+    upserted = 0
+    failed = 0
+
+    for account in accounts:
+        # account.provider is the DB provider ("todoist"/"google"/"o365"); map it to the
+        # task-provider key ("todoist"/"google_tasks"/"outlook") used by TaskManager and the
+        # Task.provider column so reads and write-backs stay consistent.
+        task_provider = PROVIDER_TO_TASK.get(account.provider)
+        if task_provider is None:
+            logger.warning(
+                "Account %s has provider %r not usable for tasks; skipping",
+                account.external_email,
+                account.provider,
+            )
+            failed += 1
+            continue
+        else:
+            # Provider maps to a known task provider — proceed with sync.
+            pass
+
+        try:
+            provider_tasks = await task_manager.get_tasks(session, user_id, account.external_email, task_provider)
+            upserted += await sync_provider_tasks(
+                session, user_id, account.external_email, task_provider, provider_tasks
+            )
+        except Exception:
+            logger.exception("Sync failed for account %s (%s)", account.external_email, task_provider)
+            failed += 1
+
+    return {"accounts": len(accounts), "upserted": upserted, "failed": failed}
 
 
 async def sync_provider_tasks(

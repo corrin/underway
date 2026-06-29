@@ -6,17 +6,20 @@ import asyncio
 import logging
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from googleapiclient._apis.tasks.v1 import TasksResource
 from googleapiclient.discovery import build
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from underway.config import get_settings
 from underway.models.external_account import ExternalAccount
 from underway.providers.task_provider import ProviderTask, TaskProvider
+
+if TYPE_CHECKING:
+    from googleapiclient._apis.tasks.v1 import TasksResource
 
 logger = logging.getLogger(__name__)
 

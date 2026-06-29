@@ -2,12 +2,16 @@
 
 import uuid
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from underway.auth.jwt import create_access_token
+from underway.models.external_account import ExternalAccount
 from underway.models.task import Task
 from underway.models.user import User
+from underway.providers.task_manager import TaskManager
+from underway.providers.task_provider import ProviderTask
 
 SECRET = "test-secret-key-at-least-32-chars!"
 
@@ -259,3 +263,58 @@ class TestSync:
         user = await _create_user(db_session)
         response = await client.post("/api/tasks/sync", headers=_auth_headers(user))
         assert response.status_code == 200
+
+    async def test_sync_imports_provider_tasks_and_is_idempotent(
+        self,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        user = await _create_user(db_session, "synctest@example.com")
+        account = ExternalAccount(
+            user_id=user.id,
+            external_email="synctest@example.com",
+            provider="todoist",
+            use_for_tasks=True,
+            needs_reauth=False,
+            api_key="key",
+        )
+        db_session.add(account)
+        await db_session.commit()
+
+        async def fake_get_tasks(
+            self: TaskManager,
+            session: AsyncSession,
+            user_id: uuid.UUID,
+            task_user_email: str,
+            provider_name: str,
+        ) -> list[ProviderTask]:
+            return [
+                ProviderTask(
+                    id="t1",
+                    title="Imported from Todoist",
+                    project_id="proj1",
+                    priority=1,
+                    due_date=None,
+                    status="active",
+                    provider_task_id="t1",
+                )
+            ]
+
+        monkeypatch.setattr(TaskManager, "get_tasks", fake_get_tasks)
+
+        response = await client.post("/api/tasks/sync", headers=_auth_headers(user))
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "ok"
+        assert body["upserted"] == 1
+
+        listed = await client.get("/api/tasks", headers=_auth_headers(user))
+        tasks = listed.json()
+        assert len(tasks) == 1
+        assert tasks[0]["title"] == "Imported from Todoist"
+        assert tasks[0]["provider"] == "todoist"
+
+        # Second sync with identical content is a no-op (content-hash unchanged).
+        response2 = await client.post("/api/tasks/sync", headers=_auth_headers(user))
+        assert response2.json()["upserted"] == 0

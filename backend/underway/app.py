@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from underway.auth.jwt import create_token_auth
 from underway.chat.streaming import router as chat_router
 from underway.config import Settings, get_settings
+from underway.providers.task_sync_loop import task_sync_loop
 from underway.providers.token_refresh import token_refresh_loop
 from underway.routes.auth import router as auth_router
 from underway.routes.auth import test_router as auth_test_router
@@ -61,14 +62,16 @@ def create_app(
         """Start background tasks on startup, cancel cleanly on shutdown."""
         factory = _get_or_create_factory()
         refresh_task = asyncio.create_task(token_refresh_loop(factory))
-        logger.info("Token refresh background task started")
+        sync_task = asyncio.create_task(task_sync_loop(factory))
+        logger.info("Token refresh and task sync background tasks started")
         try:
             yield
         finally:
-            refresh_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await refresh_task
-            logger.info("Token refresh background task stopped")
+            for background_task in (refresh_task, sync_task):
+                background_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await background_task
+            logger.info("Token refresh and task sync background tasks stopped")
 
     app = FastAPI(
         title="Underway",
