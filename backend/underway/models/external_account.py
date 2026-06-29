@@ -133,6 +133,13 @@ class ExternalAccount(Base):
         return list(result.scalars().all())
 
     @classmethod
+    async def get_user_ids_with_task_accounts(cls, session: AsyncSession) -> list[uuid.UUID]:
+        """Return distinct user ids that have at least one task-enabled account."""
+        stmt = select(cls.user_id).where(cls.use_for_tasks.is_(True)).distinct()
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    @classmethod
     async def get_task_account(
         cls,
         session: AsyncSession,
