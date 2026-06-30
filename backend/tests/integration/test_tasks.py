@@ -46,6 +46,22 @@ async def _create_task(db_session: AsyncSession, user: User, title: str = "Test 
     return task
 
 
+class TestAuthRequired:
+    async def test_anonymous_list_is_rejected_not_500(self, client: AsyncClient) -> None:
+        """No Authorization header must yield 401 — never a 500 from a None user.
+
+        Regression: viewsets inherited fastrest's AllowAny class default, which shadowed
+        the configured IsAuthenticated, so anonymous requests reached get_queryset and
+        crashed on user.id (AttributeError -> 500).
+        """
+        response = await client.get("/api/tasks")
+        assert response.status_code == 401
+
+    async def test_anonymous_create_is_rejected(self, client: AsyncClient) -> None:
+        response = await client.post("/api/tasks", json={"title": "x"})
+        assert response.status_code == 401
+
+
 class TestTaskList:
     async def test_list_returns_users_tasks(self, client: AsyncClient, db_session: AsyncSession) -> None:
         user = await _create_user(db_session)
