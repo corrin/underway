@@ -60,3 +60,7 @@ If any of these don't hold, the concept changes.
 ## Getting started
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, project conventions, and common gotchas.
+
+See [Weekly priority queue](docs/priority-queue.md) for configuration, selection rules,
+calendar publication and recovery, and [ADR 0001](docs/adr/0001-priority-queue-and-data-ownership.md)
+for data ownership and the temporary intentions-store exception.

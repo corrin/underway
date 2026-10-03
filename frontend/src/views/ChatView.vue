@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch, computed } from 'vue'
+import WeeklyQueue from '@/components/WeeklyQueue.vue'
 import ChatMessage from '@/components/ChatMessage.vue'
 import { useChatStore, type DashboardTask } from '@/stores/chat'
 import { useCalendarStore } from '@/stores/calendar'
@@ -169,6 +170,7 @@ function priorityLabel(task: DashboardTask) {
 
     <!-- Dashboard sidebar -->
     <aside class="chat-sidebar chat-sidebar--right">
+      <WeeklyQueue :refreshing="store.isStreaming" />
       <div class="dashboard-section">
         <h4 class="dashboard-section-title">Today's Calendar</h4>
         <div v-if="calendarStore.loading" class="dashboard-empty">Loading...</div>

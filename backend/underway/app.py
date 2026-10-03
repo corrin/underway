@@ -22,8 +22,10 @@ from underway.routes.auth import router as auth_router
 from underway.routes.auth import test_router as auth_test_router
 from underway.routes.calendar import router as calendar_router
 from underway.routes.oauth import router as oauth_router
+from underway.routes.scheduling import router as scheduling_router
 from underway.routes.settings import router as settings_router
 from underway.routes.todoist_auth import router as todoist_auth_router
+from underway.scheduling.service import scheduling_loop
 from underway.viewsets.chat import ConversationViewSet
 from underway.viewsets.external_accounts import ExternalAccountViewSet
 from underway.viewsets.tasks import TaskViewSet
@@ -63,11 +65,12 @@ def create_app(
         factory = _get_or_create_factory()
         refresh_task = asyncio.create_task(token_refresh_loop(factory))
         sync_task = asyncio.create_task(task_sync_loop(factory))
+        schedule_task = asyncio.create_task(scheduling_loop(factory))
         logger.info("Token refresh and task sync background tasks started")
         try:
             yield
         finally:
-            for background_task in (refresh_task, sync_task):
+            for background_task in (refresh_task, sync_task, schedule_task):
                 background_task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await background_task
@@ -123,6 +126,7 @@ def create_app(
     app.include_router(chat_router)
     app.include_router(oauth_router)
     app.include_router(settings_router)
+    app.include_router(scheduling_router)
     app.include_router(todoist_auth_router)
 
     # Test-only routes — completely absent in production

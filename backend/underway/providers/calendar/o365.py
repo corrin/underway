@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 O365_SCOPES = [
     "https://graph.microsoft.com/Calendars.ReadWrite",
+    "https://graph.microsoft.com/Tasks.ReadWrite",
     "https://graph.microsoft.com/User.Read",
     "offline_access",
 ]

@@ -12,8 +12,10 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from underway.chat.scheduling_tools import DESCRIPTIONS, SCHEDULING_TOOLS, execute_scheduling_tool
 from underway.models.task import Task
 from underway.models.user import User
+from underway.services.task_actions import edit_task
 
 _ToolHandler = Callable[[dict[str, Any], uuid.UUID, AsyncSession], Awaitable[dict[str, Any]]]
 
@@ -142,8 +144,18 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
 ]
 
+TOOL_DEFINITIONS.extend(SCHEDULING_TOOLS)
+
 # Tools that mutate data (used for confirmation flows, guardrails, etc.)
-MUTATING_TOOLS: set[str] = {"complete_task", "create_task", "update_task"}
+MUTATING_TOOLS: set[str] = {
+    "complete_task",
+    "create_task",
+    "update_task",
+    "set_intentions",
+    "rebuild_schedule",
+    "report_activity",
+    "correct_activity",
+}
 
 # ---------------------------------------------------------------------------
 # Handler functions
@@ -188,9 +200,7 @@ async def _handle_complete_task(
     if task is None:
         return {"error": "Task not found or access denied"}
 
-    task.status = "completed"
-    await session.flush()
-    return {"success": True, "task": task.to_dict()}
+    return await edit_task(session, task, {"status": "completed"})
 
 
 async def _handle_create_task(
@@ -249,12 +259,7 @@ async def _handle_update_task(
         return {"error": "Task not found or access denied"}
 
     updatable = ("title", "description", "priority", "status")
-    for field in updatable:
-        if field in arguments:
-            setattr(task, field, arguments[field])
-
-    await session.flush()
-    return {"success": True, "task": task.to_dict()}
+    return await edit_task(session, task, {key: arguments[key] for key in updatable if key in arguments})
 
 
 async def _handle_get_calendar(
@@ -307,6 +312,13 @@ async def execute_tool(
     session: AsyncSession,
 ) -> dict[str, Any]:
     """Dispatch a tool call to the appropriate handler."""
+    if tool_name in DESCRIPTIONS:
+        try:
+            return await execute_scheduling_tool(tool_name, arguments, user_id, session)
+        except ValueError as exc:
+            return {"success": False, "error": str(exc)}
+    else:
+        pass
     handler = _TOOL_HANDLERS.get(tool_name)
     if handler is None:
         return {"error": f"Unknown tool: {tool_name}"}

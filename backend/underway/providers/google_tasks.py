@@ -4,22 +4,24 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from underway.config import get_settings
 from underway.models.external_account import ExternalAccount
+from underway.models.task import Task
 from underway.providers.task_provider import ProviderTask, TaskProvider
 
 if TYPE_CHECKING:
     from googleapiclient._apis.tasks.v1 import TasksResource
+    from googleapiclient._apis.tasks.v1.schemas import Task as GoogleTask
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,7 @@ class GoogleTaskProvider(TaskProvider):
 
         creds = Credentials(
             token=account.token,
+            expiry=account.expires_at.replace(tzinfo=None) if account.expires_at else None,
             refresh_token=account.refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
             client_id=get_settings().google_client_id,
@@ -55,6 +58,10 @@ class GoogleTaskProvider(TaskProvider):
         if creds.expired and creds.refresh_token:
             await asyncio.to_thread(creds.refresh, Request())  # blocking HTTP — must be off the event loop
             account.token = creds.token
+            if creds.expiry:
+                account.expires_at = creds.expiry.replace(tzinfo=UTC)
+            else:
+                pass
             await session.flush()
 
         return build("tasks", "v1", credentials=creds)
@@ -83,20 +90,38 @@ class GoogleTaskProvider(TaskProvider):
             msg = f"Google Tasks client not initialized for user_id={user_id}"
             raise RuntimeError(msg)
 
-        result = client.tasklists().list().execute()
-        task_lists = result.get("items", [])
+        task_lists = []
+        page_token = ""
+        while True:
+            request = client.tasklists().list(pageToken=page_token)
+            result = await asyncio.to_thread(request.execute)
+            task_lists.extend(result.get("items", []))
+            page_token = result.get("nextPageToken", "")
+            if not page_token:
+                break
+            else:
+                pass
         all_tasks: list[dict[str, object]] = []
 
         for task_list in task_lists:
             list_id = task_list["id"]
             list_name = task_list.get("title", "Tasks")
-            task_result = client.tasks().list(tasklist=list_id, showCompleted=False, showHidden=True).execute()
-            items = task_result.get("items", [])
-            for item in items:
-                task_dict: dict[str, object] = dict(item)
-                task_dict["listId"] = list_id
-                task_dict["listName"] = list_name
-                all_tasks.append(task_dict)
+            page_token = ""
+            while True:
+                tasks_request = client.tasks().list(
+                    tasklist=list_id, showCompleted=False, showHidden=True, pageToken=page_token
+                )
+                task_result = await asyncio.to_thread(tasks_request.execute)
+                for item in task_result.get("items", []):
+                    task_dict: dict[str, object] = dict(item)
+                    task_dict["listId"] = list_id
+                    task_dict["listName"] = list_name
+                    all_tasks.append(task_dict)
+                page_token = task_result.get("nextPageToken", "")
+                if not page_token:
+                    break
+                else:
+                    pass
 
         tasks: list[ProviderTask] = []
         for t in all_tasks:
@@ -115,7 +140,7 @@ class GoogleTaskProvider(TaskProvider):
 
             tasks.append(
                 ProviderTask(
-                    id=str(uuid.uuid4()),
+                    id=str(t["id"]),
                     title=str(t.get("title", "")),
                     project_id=str(t.get("listId", "")),
                     priority=2,  # Google Tasks has no priority
@@ -125,6 +150,7 @@ class GoogleTaskProvider(TaskProvider):
                     section_id=None,
                     project_name=str(t.get("listName", "")),
                     provider_task_id=str(t["id"]),
+                    description=str(t.get("notes", "")),
                 ),
             )
 
@@ -142,11 +168,35 @@ class GoogleTaskProvider(TaskProvider):
         task_id: str,
         task_data: dict[str, object] | None = None,
     ) -> bool:
-        """Update task properties (stub — partial implementation)."""
-        logger.warning("GoogleTaskProvider.update_task is a stub")
+        """Write supported edits back to the source."""
+        task = await session.scalar(select(Task).where(Task.id == task_id, Task.user_id == user_id))
+        if task is None or not task.project_id:
+            raise ValueError("Task not found or missing its source list.")
+        else:
+            client = await self._get_client(session, user_id, task.task_user_email or "")
+        if client is None:
+            raise ValueError("Google Tasks requires authentication.")
+        else:
+            data = task_data or {}
+        body: GoogleTask = {}
+        if "status" in data:
+            body["status"] = "completed" if data["status"] == "completed" else "needsAction"
+        else:
+            pass
+        if "title" in data:
+            body["title"] = str(data["title"])
+        else:
+            pass
+        if "description" in data:
+            body["notes"] = str(data["description"] or "")
+        else:
+            pass
+        await asyncio.to_thread(
+            lambda: (
+                client.tasks().patch(tasklist=task.project_id or "", task=task.provider_task_id, body=body).execute()
+            )
+        )
         return True
 
     async def update_task_status(self, session: AsyncSession, user_id: UUID, task_id: str, status: str) -> bool:
-        """Update task status (stub — partial implementation)."""
-        logger.warning("GoogleTaskProvider.update_task_status is a stub")
-        return True
+        return await self.update_task(session, user_id, task_id, {"status": status})

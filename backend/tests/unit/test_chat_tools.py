@@ -24,9 +24,21 @@ if TYPE_CHECKING:
 
 
 class TestToolDefinitions:
-    def test_all_five_tools_defined(self) -> None:
+    def test_all_tools_defined(self) -> None:
         names = {t["function"]["name"] for t in TOOL_DEFINITIONS}
-        assert names == {"get_tasks", "complete_task", "create_task", "update_task", "get_calendar"}
+        assert names == {
+            "get_tasks",
+            "complete_task",
+            "create_task",
+            "update_task",
+            "get_calendar",
+            "get_intentions",
+            "set_intentions",
+            "get_schedule",
+            "rebuild_schedule",
+            "report_activity",
+            "correct_activity",
+        }
 
     def test_each_tool_has_function_type(self) -> None:
         for tool in TOOL_DEFINITIONS:
@@ -36,7 +48,15 @@ class TestToolDefinitions:
             assert "parameters" in tool["function"]
 
     def test_mutating_tools_correct(self) -> None:
-        assert {"complete_task", "create_task", "update_task"} == MUTATING_TOOLS
+        assert {
+            "complete_task",
+            "create_task",
+            "update_task",
+            "set_intentions",
+            "rebuild_schedule",
+            "report_activity",
+            "correct_activity",
+        } == MUTATING_TOOLS
 
     def test_mutating_tools_excludes_read_only(self) -> None:
         assert "get_tasks" not in MUTATING_TOOLS
@@ -68,7 +88,7 @@ async def _make_task(
     task = Task(
         id=uuid.uuid4(),
         user_id=user_id,
-        provider="google",
+        provider="local",
         provider_task_id=str(uuid.uuid4()),
         title=title,
         status=status,

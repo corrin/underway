@@ -6,10 +6,17 @@ import logging
 from datetime import datetime
 from uuid import UUID
 
+from msgraph.generated.models.body_type import BodyType
+from msgraph.generated.models.importance import Importance
+from msgraph.generated.models.item_body import ItemBody
+from msgraph.generated.models.task_status import TaskStatus
+from msgraph.generated.models.todo_task import TodoTask
 from msgraph.graph_service_client import GraphServiceClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from underway.models.external_account import ExternalAccount
+from underway.models.task import Task
 from underway.providers.o365_credentials import AccessTokenCredential
 from underway.providers.task_provider import ProviderTask, TaskProvider
 
@@ -69,20 +76,43 @@ class OutlookTaskProvider(TaskProvider):
             raise RuntimeError(msg)
 
         lists_resp = await client.me.todo.lists.get()
-        task_lists = (lists_resp.value if lists_resp else None) or []
+        if lists_resp is None:
+            raise RuntimeError("Incomplete Microsoft To Do list response.")
+        else:
+            task_lists = lists_resp.value or []
+        while lists_resp and lists_resp.odata_next_link:
+            lists_resp = await client.me.todo.lists.with_url(lists_resp.odata_next_link).get()
+            if lists_resp is None:
+                raise RuntimeError("Incomplete Microsoft To Do list response.")
+            else:
+                task_lists.extend(lists_resp.value or [])
         all_tasks: list[dict[str, object]] = []
 
         for task_list in task_lists:
             list_id = task_list.id or ""
             list_name = task_list.display_name or "Tasks"
             tasks_resp = await client.me.todo.lists.by_todo_task_list_id(list_id).tasks.get()
-            items = (tasks_resp.value if tasks_resp else None) or []
+            if tasks_resp is None:
+                raise RuntimeError("Incomplete Microsoft To Do task response.")
+            else:
+                items = tasks_resp.value or []
+            while tasks_resp and tasks_resp.odata_next_link:
+                tasks_resp = (
+                    await client.me.todo.lists.by_todo_task_list_id(list_id)
+                    .tasks.with_url(tasks_resp.odata_next_link)
+                    .get()
+                )
+                if tasks_resp is None:
+                    raise RuntimeError("Incomplete Microsoft To Do task response.")
+                else:
+                    items.extend(tasks_resp.value or [])
             for item in items:
                 task_dict: dict[str, object] = {
                     "id": item.id,
                     "subject": item.title,
-                    "importance": str(item.importance) if item.importance else "normal",
-                    "status": "completed" if item.status and str(item.status) == "completed" else "active",
+                    "importance": item.importance.value if item.importance else "normal",
+                    "status": "completed" if item.status == TaskStatus.Completed else "active",
+                    "description": item.body.content if item.body else "",
                     "dueDateTime": {"dateTime": item.due_date_time.date_time} if item.due_date_time else None,
                     "listId": list_id,
                     "listName": list_name,
@@ -120,6 +150,7 @@ class OutlookTaskProvider(TaskProvider):
                     section_id=None,
                     project_name=str(t.get("listName", "")),
                     provider_task_id=str(t["id"]),
+                    description=str(t.get("description") or ""),
                 ),
             )
 
@@ -137,11 +168,42 @@ class OutlookTaskProvider(TaskProvider):
         task_id: str,
         task_data: dict[str, object] | None = None,
     ) -> bool:
-        """Update task properties (stub — partial implementation)."""
-        logger.warning("OutlookTaskProvider.update_task is a stub")
+        """Apply edits through Microsoft Graph before acknowledging completion."""
+        task = await session.scalar(select(Task).where(Task.id == task_id, Task.user_id == user_id))
+        if task is None or not task.project_id:
+            raise ValueError("Task not found or missing its source list.")
+        else:
+            client = await self._get_client(session, user_id, task.task_user_email or "")
+        if client is None:
+            raise ValueError("Microsoft To Do requires authentication.")
+        else:
+            data = task_data or {}
+        body = TodoTask()
+        if "priority" in data:
+            priority = int(str(data["priority"]))
+            body.importance = (
+                Importance.High if priority >= 3 else Importance.Low if priority == 1 else Importance.Normal
+            )
+        else:
+            pass
+        if "status" in data:
+            body.status = TaskStatus.Completed if data["status"] == "completed" else TaskStatus.NotStarted
+        else:
+            pass
+        if "title" in data:
+            body.title = str(data["title"])
+        else:
+            pass
+        if "description" in data:
+            body.body = ItemBody(content=str(data["description"] or ""), content_type=BodyType.Text)
+        else:
+            pass
+        await (
+            client.me.todo.lists.by_todo_task_list_id(task.project_id)
+            .tasks.by_todo_task_id(task.provider_task_id)
+            .patch(body)
+        )
         return True
 
     async def update_task_status(self, session: AsyncSession, user_id: UUID, task_id: str, status: str) -> bool:
-        """Update task status (stub — partial implementation)."""
-        logger.warning("OutlookTaskProvider.update_task_status is a stub")
-        return True
+        return await self.update_task(session, user_id, task_id, {"status": status})

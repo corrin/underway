@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/api/client'
+import IntentionsSettings from '@/components/IntentionsSettings.vue'
 import { useTheme } from '@/composables/useTheme'
 
 const { theme, setTheme } = useTheme()
@@ -243,15 +244,6 @@ onMounted(() => {
         ></textarea>
       </div>
 
-      <div class="field">
-        <label for="schedule_slot_duration">Schedule Slot Duration</label>
-        <select id="schedule_slot_duration" v-model.number="settings.schedule_slot_duration">
-          <option :value="30">30 minutes</option>
-          <option :value="60">60 minutes</option>
-          <option :value="120">120 minutes</option>
-        </select>
-      </div>
-
       <div class="form-actions">
         <button type="submit" :disabled="saving">
           {{ saving ? 'Saving...' : saved ? 'Saved ✓' : 'Save Settings' }}
@@ -286,6 +278,8 @@ onMounted(() => {
         </li>
       </ul>
     </div>
+
+    <IntentionsSettings />
 
     <section class="accounts-section">
       <h2>External Accounts</h2>

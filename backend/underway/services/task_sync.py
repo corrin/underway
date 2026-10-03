@@ -97,7 +97,7 @@ async def sync_provider_tasks(
         user_id,
         task_user_email,
         provider_name,
-        [pt.id for pt in provider_tasks],
+        [pt.provider_task_id or pt.id for pt in provider_tasks],
     )
 
     logger.info(
@@ -123,7 +123,8 @@ async def _create_or_update_task(
         select(Task).where(
             Task.user_id == user_id,
             Task.provider == provider_name,
-            Task.provider_task_id == provider_task.id,
+            Task.task_user_email == task_user_email,
+            Task.provider_task_id == (provider_task.provider_task_id or provider_task.id),
         )
     )
     existing = result.scalar_one_or_none()
@@ -133,8 +134,11 @@ async def _create_or_update_task(
             user_id=user_id,
             task_user_email=task_user_email,
             provider=provider_name,
-            provider_task_id=provider_task.id,
+            provider_task_id=provider_task.provider_task_id or provider_task.id,
             title=provider_task.title,
+            description=provider_task.description,
+            deadline=provider_task.deadline,
+            estimated_minutes=provider_task.estimated_minutes,
             status=provider_task.status,
             due_date=provider_task.due_date,
             priority=provider_task.priority,
@@ -143,16 +147,25 @@ async def _create_or_update_task(
             parent_id=provider_task.parent_id,
             section_id=provider_task.section_id,
             content_hash=content_hash,
-            list_type="unprioritized",
+            list_type="completed" if provider_task.status == "completed" else "unprioritized",
             position=0,
         )
         session.add(task)
         return True
 
+    if provider_task.status == "completed":
+        existing.list_type = "completed"
+    elif existing.list_type == "completed":
+        existing.list_type = "unprioritized"
+    else:
+        pass
     if existing.content_hash == content_hash:
         return False  # unchanged
 
     existing.title = provider_task.title
+    existing.description = provider_task.description
+    existing.deadline = provider_task.deadline
+    existing.estimated_minutes = provider_task.estimated_minutes
     existing.status = provider_task.status
     existing.due_date = provider_task.due_date
     existing.priority = provider_task.priority
@@ -196,6 +209,10 @@ def _compute_hash(provider_task: ProviderTask) -> str:
     """Compute a content hash for change detection."""
     content = {
         "title": provider_task.title,
+        "description": provider_task.description,
+        "project_name": provider_task.project_name,
+        "deadline": provider_task.deadline.isoformat() if provider_task.deadline else None,
+        "estimated_minutes": provider_task.estimated_minutes,
         "status": provider_task.status,
         "due_date": (provider_task.due_date.isoformat() if provider_task.due_date else None),
         "priority": provider_task.priority,

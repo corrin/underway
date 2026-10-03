@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime
 from uuid import UUID
@@ -68,13 +69,13 @@ class TodoistProvider(TaskProvider):
 
         # Get projects for name mapping
         projects: dict[str, str] = {}
-        for page in api.get_projects():
+        for page in await asyncio.to_thread(lambda: list(api.get_projects())):
             for p in page:
                 projects[p.id] = p.name
 
         tasks: list[ProviderTask] = []
 
-        for task_page in api.get_tasks():
+        for task_page in await asyncio.to_thread(lambda: list(api.get_tasks())):
             for t in task_page:
                 if t.content == INSTRUCTION_TASK_TITLE:
                     continue
@@ -96,6 +97,11 @@ class TodoistProvider(TaskProvider):
                         section_id=getattr(t, "section_id", None),
                         project_name=projects.get(t.project_id),
                         provider_task_id=t.id,
+                        description=t.description,
+                        deadline=datetime.fromisoformat(str(t.deadline.date)) if t.deadline else None,
+                        estimated_minutes=(
+                            t.duration.amount * (1440 if t.duration.unit == "day" else 1) if t.duration else None
+                        ),
                     ),
                 )
 
@@ -138,44 +144,32 @@ class TodoistProvider(TaskProvider):
 
         provider_task_id = task.provider_task_id
 
-        # Handle status changes
-        if "status" in task_data:
-            if task_data["status"] == "completed":
-                api.complete_task(provider_task_id)
-            else:
-                api.uncomplete_task(provider_task_id)
-
         # Handle other field updates
         if "title" in task_data:
-            api.update_task(task_id=provider_task_id, content=str(task_data["title"]))
+            await asyncio.to_thread(api.update_task, task_id=provider_task_id, content=str(task_data["title"]))
         if "due_date" in task_data:
             if task_data["due_date"]:
-                api.update_task(task_id=provider_task_id, due_string=str(task_data["due_date"]))
+                await asyncio.to_thread(
+                    api.update_task, task_id=provider_task_id, due_string=str(task_data["due_date"])
+                )
             else:
-                api.update_task(task_id=provider_task_id, due_string="")
+                await asyncio.to_thread(api.update_task, task_id=provider_task_id, due_string="")
         if "priority" in task_data:
-            api.update_task(task_id=provider_task_id, priority=5 - int(str(task_data["priority"])))
+            await asyncio.to_thread(api.update_task, task_id=provider_task_id, priority=int(str(task_data["priority"])))
 
-        return True
+        if "description" in task_data:
+            await asyncio.to_thread(
+                api.update_task, task_id=provider_task_id, description=str(task_data["description"] or "")
+            )
+        else:
+            pass
+
+        if "status" in task_data:
+            action = api.complete_task if task_data["status"] == "completed" else api.uncomplete_task
+            return await asyncio.to_thread(action, provider_task_id)
+        else:
+            return True
 
     async def update_task_status(self, session: AsyncSession, user_id: UUID, task_id: str, status: str) -> bool:
         """Update task completion status in Todoist."""
-        result = await session.execute(select(Task).where(Task.id == task_id, Task.user_id == user_id))
-        task = result.scalar_one_or_none()
-        if not task:
-            raise ValueError(f"Task {task_id} not found")
-
-        api = await self._get_api(session, user_id, task.task_user_email or "")
-        if not api:
-            msg = f"Todoist API not initialized for user_id={user_id}"
-            raise RuntimeError(msg)
-
-        provider_task_id = task.provider_task_id
-
-        if status == "completed":
-            api.complete_task(provider_task_id)
-        else:
-            api.uncomplete_task(provider_task_id)
-
-        logger.info("[TODOIST] Updated task %s status to %s", task_id, status)
-        return True
+        return await self.update_task(session, user_id, task_id, {"status": status})

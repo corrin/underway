@@ -17,6 +17,7 @@ from underway.serializers.task import (
     TaskOrderSerializer,
     TaskSerializer,
 )
+from underway.services.task_actions import edit_task
 from underway.services.task_sync import sync_all_task_accounts
 from underway.viewsets.base import SessionMixin
 
@@ -97,9 +98,9 @@ class TaskViewSet(SessionMixin, ModelViewSet):
         task.position = data.get("position", 0)
 
         if destination == "completed":
-            task.status = "completed"
+            await edit_task(session, task, {"status": "completed"})
         elif task.status == "completed":
-            task.status = "active"
+            await edit_task(session, task, {"status": "active"})
 
         await session.flush()
         return {"status": "ok"}
@@ -152,11 +153,8 @@ class TaskViewSet(SessionMixin, ModelViewSet):
         if not new_status:
             return {"status": "ok"}
 
-        task.status = new_status
-        if new_status == "completed":
-            task.list_type = "completed"
-        elif task.list_type == "completed":
-            task.list_type = "unprioritized"
-
-        await session.flush()
+        try:
+            await edit_task(session, task, {"status": new_status})
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         return {"status": "ok"}
