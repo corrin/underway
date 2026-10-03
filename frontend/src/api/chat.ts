@@ -1,4 +1,5 @@
 import api from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
 
 export interface Conversation {
   id: string
@@ -87,8 +88,7 @@ export async function sendMessage(
   })
 
   if (response.status === 401) {
-    localStorage.removeItem('token')
-    import('@/router').then(({ default: router }) => router.push('/login'))
+    useAuthStore().logout()
     throw new Error('Session expired. Please log in again.')
   }
   if (!response.ok) {
