@@ -27,6 +27,7 @@ from playwright.sync_api import Page, sync_playwright
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from underway.auth.jwt import verify_access_token
 from underway.config import get_settings
 from underway.models.external_account import ExternalAccount
 
@@ -110,14 +111,23 @@ def authenticated_page(
     pw.stop()
 
 
-async def _load_google_tasks_account() -> tuple[str, str | None, str | None] | None:
-    """Read a connected, task-enabled Google account from the app DB, or None."""
+def _authenticated_user_id(page: Page) -> uuid.UUID:
+    """The app user the page is logged in as, read from the JWT the app stored."""
+    token = page.evaluate("() => localStorage.getItem('token')")
+    assert token, "expected a JWT in localStorage after authentication"
+    payload = verify_access_token(str(token), get_settings().jwt_secret_key)
+    return uuid.UUID(payload["sub"])
+
+
+async def _load_google_tasks_account(user_id: uuid.UUID) -> tuple[str, str | None, str | None] | None:
+    """Read the given user's connected, task-enabled Google account from the app DB, or None."""
     settings = get_settings()
     engine = create_async_engine(settings.database_url)
     try:
         async with async_sessionmaker(engine, expire_on_commit=False)() as session:
             result = await session.execute(
                 select(ExternalAccount).where(
+                    ExternalAccount.user_id == user_id,
                     ExternalAccount.provider == "google",
                     ExternalAccount.use_for_tasks.is_(True),
                     ExternalAccount.needs_reauth.is_(False),
@@ -162,13 +172,13 @@ class GoogleTasksSandbox:
 
 
 @pytest.fixture
-def google_tasks(base_url: str) -> Generator[GoogleTasksSandbox]:
-    """A real Google Tasks sandbox for the connected, task-enabled Google account.
+def google_tasks(base_url: str, authenticated_page: Page) -> Generator[GoogleTasksSandbox]:
+    """A real Google Tasks sandbox for the logged-in user's task-enabled Google account.
 
     Skips if no such account is connected — set one up once via Settings (re-auth Google,
     then click "Use for tasks"). Any sentinel tasks created are deleted on teardown.
     """
-    account = asyncio.run(_load_google_tasks_account())
+    account = asyncio.run(_load_google_tasks_account(_authenticated_user_id(authenticated_page)))
     if account is None:
         pytest.skip(
             "No task-enabled Google account connected. In Settings, re-auth Google "

@@ -70,6 +70,21 @@ class TestUseForTasks:
         )
         assert response.status_code == 404
 
+    async def test_unsupported_provider_returns_400(self, client: AsyncClient, db_session: AsyncSession) -> None:
+        user = await _create_user(db_session)
+        account = await _create_account(db_session, user, provider="dropbox")
+
+        response = await client.post(
+            f"/api/external-accounts/{account.id}/use-for-tasks",
+            headers=_auth_headers(user),
+        )
+        assert response.status_code == 400
+
+        listed = await client.get("/api/external-accounts", headers=_auth_headers(user))
+        accounts = listed.json()
+        assert accounts[0]["use_for_tasks"] is False
+        assert accounts[0]["is_primary_tasks"] is False
+
     async def test_invalid_id_returns_400(self, client: AsyncClient, db_session: AsyncSession) -> None:
         user = await _create_user(db_session)
         response = await client.post(

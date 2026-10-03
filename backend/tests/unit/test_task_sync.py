@@ -90,6 +90,17 @@ class TestSyncProviderTasks:
         count = await sync_provider_tasks(db_session, user.id, "test@example.com", "todoist", [pt])
         assert count == 0
 
+    async def test_sync_does_not_delete_other_accounts_tasks(self, db_session: AsyncSession) -> None:
+        user = await _create_user(db_session)
+        first = _make_provider_task(title="First account")
+        second = _make_provider_task(title="Second account")
+
+        await sync_provider_tasks(db_session, user.id, "one@example.com", "google_tasks", [first])
+        await sync_provider_tasks(db_session, user.id, "two@example.com", "google_tasks", [second])
+
+        result = await db_session.execute(select(Task.title).where(Task.user_id == user.id))
+        assert sorted(result.scalars().all()) == ["First account", "Second account"]
+
 
 class _FakeTaskManager(TaskManager):
     """TaskManager whose get_tasks returns canned tasks per account email (no network)."""
@@ -187,11 +198,64 @@ class TestSyncAllTaskAccounts:
         task = result.scalar_one()
         assert task.title == "Survives"
 
+    async def test_persists_mapped_provider_name(self, db_session: AsyncSession) -> None:
+        user = await _create_user(db_session)
+        await _create_task_account(db_session, user, "google", "g@example.com")
+        pt = _make_provider_task(title="Imported")
+
+        manager = _FakeTaskManager(tasks_by_email={"g@example.com": [pt]})
+        summary = await sync_all_task_accounts(db_session, user.id, manager)
+
+        assert summary == {"accounts": 1, "upserted": 1, "failed": 0}
+        result = await db_session.execute(select(Task).where(Task.user_id == user.id))
+        task = result.scalar_one()
+        assert task.provider == "google_tasks"
+
+    async def test_db_error_in_one_account_is_isolated(self, db_session: AsyncSession) -> None:
+        user = await _create_user(db_session)
+        user_id = user.id
+        # Ordered by provider, so the google account (which fails) syncs before todoist.
+        await _create_task_account(db_session, user, "google", "bad@example.com")
+        await _create_task_account(db_session, user, "todoist", "ok@example.com")
+        good_before_bad = _make_provider_task(title="Rolled back with its account")
+        violates_not_null = _make_provider_task(title=None)
+        survives = _make_provider_task(title="Survives")
+
+        manager = _FakeTaskManager(
+            tasks_by_email={
+                "bad@example.com": [good_before_bad, violates_not_null],
+                "ok@example.com": [survives],
+            }
+        )
+        summary = await sync_all_task_accounts(db_session, user_id, manager)
+
+        assert summary == {"accounts": 2, "upserted": 1, "failed": 1}
+        result = await db_session.execute(select(Task).where(Task.user_id == user_id))
+        task = result.scalar_one()
+        assert task.title == "Survives"
+
     async def test_no_accounts_returns_zero_summary(self, db_session: AsyncSession) -> None:
         user = await _create_user(db_session)
         manager = _FakeTaskManager(tasks_by_email={})
         summary = await sync_all_task_accounts(db_session, user.id, manager)
         assert summary == {"accounts": 0, "upserted": 0, "failed": 0}
+
+
+class TestGetUserIdsWithTaskAccounts:
+    async def test_only_returns_users_with_a_syncable_account(self, db_session: AsyncSession) -> None:
+        syncable = await _create_user(db_session, "syncable@example.com")
+        stale = await _create_user(db_session, "stale@example.com")
+        no_credentials = await _create_user(db_session, "nocreds@example.com")
+        await _create_task_account(db_session, syncable, "google", "g@example.com")
+        stale_account = await _create_task_account(db_session, stale, "google", "stale-g@example.com")
+        stale_account.needs_reauth = True
+        missing_token = await _create_task_account(db_session, no_credentials, "o365", "o@example.com")
+        missing_token.token = None
+        await db_session.flush()
+
+        user_ids = await ExternalAccount.get_user_ids_with_task_accounts(db_session)
+
+        assert user_ids == [syncable.id]
 
 
 class TestSyncTaskDeletions:
@@ -201,6 +265,7 @@ class TestSyncTaskDeletions:
         # Create two tasks in DB
         t1 = Task(
             user_id=user.id,
+            task_user_email="td@example.com",
             provider="todoist",
             provider_task_id="keep",
             title="Keep",
@@ -211,6 +276,7 @@ class TestSyncTaskDeletions:
         )
         t2 = Task(
             user_id=user.id,
+            task_user_email="td@example.com",
             provider="todoist",
             provider_task_id="remove",
             title="Remove",
@@ -222,7 +288,7 @@ class TestSyncTaskDeletions:
         db_session.add_all([t1, t2])
         await db_session.flush()
 
-        deleted = await sync_task_deletions(db_session, user.id, "todoist", ["keep"])
+        deleted = await sync_task_deletions(db_session, user.id, "td@example.com", "todoist", ["keep"])
         assert deleted == 1
 
         result = await db_session.execute(select(Task).where(Task.user_id == user.id))

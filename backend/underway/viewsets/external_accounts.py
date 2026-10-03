@@ -10,7 +10,7 @@ from fastrest.request import Request
 from fastrest.viewsets import ReadOnlyModelViewSet
 from sqlalchemy import select
 
-from underway.models.external_account import ExternalAccount
+from underway.models.external_account import PROVIDER_TO_TASK, ExternalAccount
 from underway.serializers.external_account import ExternalAccountSerializer
 from underway.viewsets.base import SessionMixin
 
@@ -47,6 +47,8 @@ class ExternalAccountViewSet(SessionMixin, ReadOnlyModelViewSet):
         account = result.scalar_one_or_none()
         if account is None:
             raise HTTPException(status_code=404, detail="Account not found.")
+        elif account.provider not in PROVIDER_TO_TASK:
+            raise HTTPException(status_code=400, detail="This account's provider does not support tasks.")
         else:
             account.use_for_tasks = True
             await ExternalAccount.set_as_primary(

@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, Text, and_, or_, select, update
+from sqlalchemy import ColumnElement, ForeignKey, String, Text, and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -114,19 +114,23 @@ class ExternalAccount(Base):
         return result.scalar_one_or_none()
 
     @classmethod
+    def _syncable_task_account_filter(cls) -> ColumnElement[bool]:
+        """Task-enabled accounts that can actually sync: not awaiting re-auth, credentials present."""
+        return and_(
+            cls.use_for_tasks.is_(True),
+            cls.needs_reauth.is_(False),
+            or_(
+                and_(cls.provider == "todoist", cls.api_key.is_not(None)),
+                and_(cls.provider.in_(["google", "o365"]), cls.token.is_not(None)),
+            ),
+        )
+
+    @classmethod
     async def get_task_accounts_for_user(cls, session: AsyncSession, user_id: uuid.UUID) -> list[ExternalAccount]:
 
         stmt = (
             select(cls)
-            .where(
-                cls.user_id == user_id,
-                cls.use_for_tasks.is_(True),
-                cls.needs_reauth.is_(False),
-                or_(
-                    and_(cls.provider == "todoist", cls.api_key.is_not(None)),
-                    and_(cls.provider.in_(["google", "o365"]), cls.token.is_not(None)),
-                ),
-            )
+            .where(cls.user_id == user_id, cls._syncable_task_account_filter())
             .order_by(cls.provider, cls.external_email)
         )
         result = await session.execute(stmt)
@@ -134,8 +138,8 @@ class ExternalAccount(Base):
 
     @classmethod
     async def get_user_ids_with_task_accounts(cls, session: AsyncSession) -> list[uuid.UUID]:
-        """Return distinct user ids that have at least one task-enabled account."""
-        stmt = select(cls.user_id).where(cls.use_for_tasks.is_(True)).distinct()
+        """Return distinct user ids that have at least one syncable task account."""
+        stmt = select(cls.user_id).where(cls._syncable_task_account_filter()).distinct()
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
