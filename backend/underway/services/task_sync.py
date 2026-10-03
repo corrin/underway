@@ -11,10 +11,59 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from underway.models.external_account import PROVIDER_TO_TASK, ExternalAccount
 from underway.models.task import Task
+from underway.providers.task_manager import TaskManager
 from underway.providers.task_provider import ProviderTask
 
 logger = logging.getLogger(__name__)
+
+
+async def sync_all_task_accounts(
+    session: AsyncSession,
+    user_id: UUID,
+    task_manager: TaskManager,
+) -> dict[str, int]:
+    """Sync every task-enabled external account for a user into the combined task list.
+
+    Resilient: a failure on one account is logged and counted but does not abort the rest.
+    Returns a summary with the number of accounts processed, tasks upserted, and failures.
+    """
+    accounts = await ExternalAccount.get_task_accounts_for_user(session, user_id)
+    upserted = 0
+    failed = 0
+
+    for account in accounts:
+        # account.provider is the DB provider ("todoist"/"google"/"o365"); map it to the
+        # task-provider key ("todoist"/"google_tasks"/"outlook") used by TaskManager and the
+        # Task.provider column so reads and write-backs stay consistent.
+        task_provider = PROVIDER_TO_TASK.get(account.provider)
+        if task_provider is None:
+            logger.warning(
+                "Account %s has provider %r not usable for tasks; skipping",
+                account.external_email,
+                account.provider,
+            )
+            failed += 1
+            continue
+        else:
+            # Provider maps to a known task provider — proceed with sync.
+            pass
+
+        try:
+            provider_tasks = await task_manager.get_tasks(session, user_id, account.external_email, task_provider)
+            # Savepoint around the writes only: a DB error rolls back just this account's
+            # tasks and leaves the session usable for the rest. The fetch stays outside so
+            # token refreshes / needs_reauth flags it records are not rolled back with it.
+            async with session.begin_nested():
+                upserted += await sync_provider_tasks(
+                    session, user_id, account.external_email, task_provider, provider_tasks
+                )
+        except Exception:
+            logger.exception("Sync failed for account %s (%s)", account.external_email, task_provider)
+            failed += 1
+
+    return {"accounts": len(accounts), "upserted": upserted, "failed": failed}
 
 
 async def sync_provider_tasks(
@@ -46,6 +95,7 @@ async def sync_provider_tasks(
     deleted = await sync_task_deletions(
         session,
         user_id,
+        task_user_email,
         provider_name,
         [pt.id for pt in provider_tasks],
     )
@@ -119,14 +169,20 @@ async def _create_or_update_task(
 async def sync_task_deletions(
     session: AsyncSession,
     user_id: UUID,
+    task_user_email: str,
     provider: str,
     current_provider_task_ids: list[str],
 ) -> int:
-    """Remove tasks no longer present in the provider. Returns count deleted."""
+    """Remove one account's tasks that are no longer present in the provider. Returns count deleted.
+
+    Scoped to the account (task_user_email), not just the provider, so syncing one account
+    never deletes the tasks of another account on the same provider.
+    """
     result = await session.execute(
         delete(Task)
         .where(
             Task.user_id == user_id,
+            Task.task_user_email == task_user_email,
             Task.provider == provider,
             Task.provider_task_id.notin_(current_provider_task_ids),
         )

@@ -58,6 +58,7 @@ interface ModelTestResult {
 const testResult = ref<ModelTestResult | null>(null)
 const testing = ref(false)
 const connecting = ref<'google' | 'o365' | null>(null)
+const enablingTasks = ref<string | null>(null)
 
 async function loadSettings() {
   try {
@@ -76,6 +77,20 @@ async function loadAccounts() {
     accounts.value = response.data
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'Failed to load accounts'
+  }
+}
+
+async function enableTasks(accountId: string) {
+  if (enablingTasks.value) return
+  error.value = null
+  enablingTasks.value = accountId
+  try {
+    await api.post(`/external-accounts/${accountId}/use-for-tasks`)
+    await loadAccounts()
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'Failed to enable account for tasks'
+  } finally {
+    enablingTasks.value = null
   }
 }
 
@@ -285,6 +300,14 @@ onMounted(() => {
           <span v-if="account.needs_reauth" class="badge warning">Needs re-auth</span>
           <span v-if="account.use_for_calendar" class="badge">Calendar</span>
           <span v-if="account.use_for_tasks" class="badge">Tasks</span>
+          <button
+            v-if="!account.use_for_tasks && (account.provider === 'google' || account.provider === 'o365')"
+            class="btn-enable-tasks"
+            :disabled="enablingTasks === account.id"
+            @click="enableTasks(account.id)"
+          >
+            {{ enablingTasks === account.id ? 'Enabling…' : 'Use for tasks' }}
+          </button>
         </div>
       </div>
 
@@ -394,6 +417,26 @@ button[type='submit']:disabled {
 .account-status {
   display: flex;
   gap: 0.4rem;
+  align-items: center;
+}
+
+.btn-enable-tasks {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  background: var(--color-background-soft);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.btn-enable-tasks:hover:not(:disabled) {
+  border-color: var(--color-heading);
+}
+
+.btn-enable-tasks:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .badge {

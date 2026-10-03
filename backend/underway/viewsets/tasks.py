@@ -11,11 +11,13 @@ from fastrest.viewsets import ModelViewSet
 from sqlalchemy import select, update
 
 from underway.models.task import Task
+from underway.providers.task_manager import TaskManager
 from underway.serializers.task import (
     TaskMoveSerializer,
     TaskOrderSerializer,
     TaskSerializer,
 )
+from underway.services.task_sync import sync_all_task_accounts
 from underway.viewsets.base import SessionMixin
 
 
@@ -127,10 +129,13 @@ class TaskViewSet(SessionMixin, ModelViewSet):
         return {"status": "ok"}
 
     @action(methods=["post"], detail=False, url_path="sync")
-    async def sync(self, request: Request, **kwargs: str) -> dict[str, str]:
-        """POST /api/tasks/sync — trigger sync from all providers."""
-        # Provider sync will be implemented in step 2.3/2.6
-        return {"status": "ok", "message": "Sync not yet implemented."}
+    async def sync(self, request: Request, **kwargs: str) -> dict[str, object]:
+        """POST /api/tasks/sync — pull tasks from all connected providers into the list."""
+        user = request.user
+        session = self._session
+        summary = await sync_all_task_accounts(session, user.id, TaskManager())
+        await session.flush()
+        return {"status": "ok", **summary}
 
     @action(methods=["post"], detail=True, url_path="update-status")
     async def update_status(self, request: Request, pk: str = "", **kwargs: str) -> dict[str, str]:

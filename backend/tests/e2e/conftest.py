@@ -1,17 +1,35 @@
 """Playwright e2e test fixtures — uses real Chrome profile with Google auth.
 
-Prerequisites: Full Stack must be running (backend, frontend, ngrok).
+Prerequisites:
+- Full stack running: backend on :9000, frontend, ngrok (BASE_URL).
+- BASE_URL + PLAYWRIGHT_CHROME_PROFILE set (in .env / .env.test).
+- Your real Chrome must be CLOSED — the persistent profile can't be shared, and a
+  headful launch against a locked profile crashes (SIGTRAP).
+- These tests use SYNC Playwright. pytest-asyncio's auto mode and pytest-playwright
+  both inject a running event loop that breaks sync_playwright, so run via
+  `scripts/run-e2e.sh` (it passes `-p no:asyncio -p no:playwright`).
 
-All fixtures use sync Playwright (sync_playwright).
+Some tests need a connected, task-enabled Google account (see `google_tasks_account`).
 """
 
+import asyncio
+import contextlib
 import os
+import uuid
 from collections.abc import Generator
 from pathlib import Path
 
 import pytest
 from dotenv import find_dotenv, load_dotenv
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 from playwright.sync_api import Page, sync_playwright
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+from underway.auth.jwt import verify_access_token
+from underway.config import get_settings
+from underway.models.external_account import ExternalAccount
 
 load_dotenv(find_dotenv())  # BASE_URL etc. — shared with the app
 load_dotenv(find_dotenv(".env.test"))  # test-only creds — kept out of Settings
@@ -91,3 +109,100 @@ def authenticated_page(
 
     context.close()
     pw.stop()
+
+
+def _authenticated_user_id(page: Page) -> uuid.UUID:
+    """The app user the page is logged in as, read from the JWT the app stored."""
+    token = page.evaluate("() => localStorage.getItem('token')")
+    assert token, "expected a JWT in localStorage after authentication"
+    payload = verify_access_token(str(token), get_settings().jwt_secret_key)
+    return uuid.UUID(payload["sub"])
+
+
+async def _load_google_tasks_account(user_id: uuid.UUID) -> tuple[str, str | None, str | None] | None:
+    """Read the given user's connected, task-enabled Google account from the app DB, or None."""
+    settings = get_settings()
+    engine = create_async_engine(settings.database_url)
+    try:
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+            result = await session.execute(
+                select(ExternalAccount).where(
+                    ExternalAccount.user_id == user_id,
+                    ExternalAccount.provider == "google",
+                    ExternalAccount.use_for_tasks.is_(True),
+                    ExternalAccount.needs_reauth.is_(False),
+                )
+            )
+            account = result.scalars().first()
+            if account is None:
+                return None
+            return account.external_email, account.token, account.refresh_token
+    finally:
+        await engine.dispose()
+
+
+class GoogleTasksSandbox:
+    """Creates sentinel tasks in a real Google Tasks account and cleans them all up."""
+
+    def __init__(self, email: str, service: object) -> None:
+        self.email = email
+        self.service = service
+        self._created_ids: list[str] = []
+
+    def create(self, title: str) -> str:
+        task = self.service.tasks().insert(tasklist="@default", body={"title": title}).execute()
+        task_id: str = task["id"]
+        self._created_ids.append(task_id)
+        return task_id
+
+    def update_title(self, task_id: str, title: str) -> None:
+        self.service.tasks().patch(tasklist="@default", task=task_id, body={"title": title}).execute()
+
+    def delete(self, task_id: str) -> None:
+        self.service.tasks().delete(tasklist="@default", task=task_id).execute()
+        if task_id in self._created_ids:
+            self._created_ids.remove(task_id)
+        else:
+            pass
+
+    def cleanup(self) -> None:
+        for task_id in list(self._created_ids):
+            with contextlib.suppress(Exception):
+                self.service.tasks().delete(tasklist="@default", task=task_id).execute()
+
+
+@pytest.fixture
+def google_tasks(base_url: str, authenticated_page: Page) -> Generator[GoogleTasksSandbox]:
+    """A real Google Tasks sandbox for the logged-in user's task-enabled Google account.
+
+    Skips if no such account is connected — set one up once via Settings (re-auth Google,
+    then click "Use for tasks"). Any sentinel tasks created are deleted on teardown.
+    """
+    account = asyncio.run(_load_google_tasks_account(_authenticated_user_id(authenticated_page)))
+    if account is None:
+        pytest.skip(
+            "No task-enabled Google account connected. In Settings, re-auth Google "
+            "(grants the tasks scope) then click 'Use for tasks' before running this test."
+        )
+    else:
+        pass
+
+    email, token, refresh_token = account
+    settings = get_settings()
+    creds = Credentials(
+        token=token,
+        refresh_token=refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=settings.google_client_id,
+        client_secret=settings.google_client_secret,
+        scopes=["https://www.googleapis.com/auth/tasks"],
+    )
+    service = build("tasks", "v1", credentials=creds)
+    sandbox = GoogleTasksSandbox(email, service)
+    yield sandbox
+    sandbox.cleanup()
+
+
+def unique_sentinel() -> str:
+    """A unique task title so stale rows can never cause a false pass."""
+    return f"E2E-SYNC-{uuid.uuid4()}"
