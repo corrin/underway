@@ -48,3 +48,19 @@ def test_authenticated_settings_page(base_url: str, authenticated_page: Page) ->
     heading = authenticated_page.locator("h1")
     heading.wait_for(state="visible")
     assert heading.text_content() == "Settings"
+
+
+@pytest.mark.e2e
+def test_rejected_token_lands_on_login(base_url: str, page: Page) -> None:
+    """Regression: a stored token the backend rejects (e.g. expired) must end on /login.
+
+    The 401 handlers used to remove the token from localStorage only, leaving the auth
+    store's in-memory copy set. The router guard still saw an authenticated user and
+    bounced /login back to /chat, stranding the user on a broken page until a reload.
+    """
+    page.goto(f"{base_url}/login")
+    page.evaluate("() => localStorage.setItem('token', 'rejected.by.backend')")
+
+    page.goto(f"{base_url}/chat")
+    page.wait_for_url("**/login**")
+    assert page.evaluate("() => localStorage.getItem('token')") is None

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import router from '@/router'
+import { useAuthStore } from '@/stores/auth'
 
 const api = axios.create({
   baseURL: '/api',
@@ -17,8 +17,9 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      router.push('/login')
+      // Clear the store too, not just localStorage — otherwise the router guard
+      // still sees an authenticated user and bounces /login back to /chat.
+      useAuthStore().logout()
     }
     return Promise.reject(error)
   },
