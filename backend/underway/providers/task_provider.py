@@ -27,6 +27,9 @@ class ProviderTask:
     section_id: str | None = None
     project_name: str | None = None
     provider_task_id: str | None = None
+    description: str | None = None
+    deadline: datetime | None = None
+    estimated_minutes: int | None = None
 
 
 class TaskProvider(ABC):

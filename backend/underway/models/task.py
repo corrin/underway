@@ -29,6 +29,8 @@ class Task(Base):
     description: Mapped[str | None] = mapped_column(Text, default=None)
     status: Mapped[str] = mapped_column(String(50))
     due_date: Mapped[datetime | None] = mapped_column(default=None)
+    deadline: Mapped[datetime | None] = mapped_column(default=None)
+    estimated_minutes: Mapped[int | None] = mapped_column(default=None)
     priority: Mapped[int | None] = mapped_column(default=None)
 
     project_id: Mapped[str | None] = mapped_column(String(255), default=None)
@@ -68,6 +70,8 @@ class Task(Base):
             "description": self.description,
             "status": self.status,
             "due_date": self.due_date.isoformat() if self.due_date else None,
+            "deadline": self.deadline.isoformat() if self.deadline else None,
+            "estimated_minutes": self.estimated_minutes,
             "priority": self.priority,
             "project_id": self.project_id,
             "project_name": self.project_name,

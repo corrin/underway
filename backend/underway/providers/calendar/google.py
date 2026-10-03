@@ -51,6 +51,7 @@ class GoogleCalendarProvider(CalendarProvider):
 
         creds = Credentials(
             token=account.token,
+            expiry=account.expires_at.replace(tzinfo=None) if account.expires_at else None,
             refresh_token=account.refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
             client_id=get_settings().google_client_id,
