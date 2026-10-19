@@ -1,0 +1,90 @@
+{
+ "timezone": "Etc/UTC",
+ "task_url": "https://app.todoist.com/app/task/{id}",
+ "default_area": "Inbox",
+ "areas": {
+  "proj-work": {
+   "name": "Work",
+   "target": 0.4
+  },
+  "proj-home": {
+   "name": "Home",
+   "target": 0.3
+  },
+  "proj-learn": {
+   "name": "Learning",
+   "target": 0.2
+  },
+  "proj-play": {
+   "name": "Fun",
+   "target": 0.1
+  },
+  "proj-inbox": {
+   "name": "Inbox",
+   "target": 0.0
+  }
+ },
+ "cooking_weekdays": [
+  3,
+  4
+ ],
+ "public_holidays": [
+  "2030-01-01"
+ ],
+ "min_score": 35,
+ "max_boost": 15,
+ "same_day_score": 75,
+ "default_minutes": 60,
+ "max_weekday_minutes": 150,
+ "max_weekend_minutes": 300,
+ "windows": {
+  "weekday": [
+   [
+    "17:00",
+    "18:30"
+   ],
+   [
+    "19:30",
+    "21:30"
+   ]
+  ],
+  "cooking": [
+   [
+    "20:30",
+    "21:30"
+   ]
+  ],
+  "weekend": [
+   [
+    "09:00",
+    "12:00"
+   ],
+   [
+    "13:00",
+    "17:00"
+   ]
+  ]
+ },
+ "skip_labels": [
+  "waiting",
+  "someone-else"
+ ],
+ "hints": {
+  "task-chore": {
+   "note": "Weekend chore",
+   "minutes": 45,
+   "days": [
+    5,
+    6
+   ],
+   "start": "09:00"
+  },
+  "task-gym": {
+   "note": "Covered by own gym events",
+   "minutes": 60,
+   "covered_by": [
+    "gym"
+   ]
+  }
+ }
+}

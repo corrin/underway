@@ -1,0 +1,33 @@
+{
+ "tasks": [
+  {
+   "id": "task-a",
+   "content": "[80] Fix the thing",
+   "projectId": "proj-work",
+   "labels": [],
+   "dueDate": "2030-03-05"
+  },
+  {
+   "id": "task-b",
+   "content": "[50] Read a book",
+   "projectId": "proj-learn",
+   "labels": []
+  },
+  {
+   "id": "task-c",
+   "content": "[60] Not mine",
+   "projectId": "proj-home",
+   "labels": [
+    "someone-else"
+   ]
+  },
+  {
+   "id": "task-chore",
+   "content": "[55] Weekend chore",
+   "projectId": "proj-home",
+   "labels": [],
+   "dueDate": "2030-03-09",
+   "recurring": "every sat, sun"
+  }
+ ]
+}
