@@ -7,8 +7,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import yaml
-
 SCRIPT = Path(__file__).resolve().parents[1] / "deploy-prod.sh"
 BACKEND = SCRIPT.parents[1] / "backend"
 
@@ -150,67 +148,6 @@ fi
         self.assertEqual(self.deploy()[0].returncode, 0)
         result, _ = self.deploy()
         self.assertEqual(result.returncode, 0, result.stderr)
-
-    def gate(
-        self, trigger: str, main_sha: str | None = None, successful_runs: str = "1"
-    ) -> tuple[subprocess.CompletedProcess[str], Path, Path]:
-        workflow = yaml.safe_load((SCRIPT.parents[1] / ".github/workflows/deploy-prod.yml").read_text())
-        step = next(step for step in workflow["jobs"]["deploy"]["steps"] if step.get("id") == "commit")
-        self.stub(
-            "gh",
-            """
-case "$*" in
-  *git/ref/heads/main*) echo "$GATE_MAIN_SHA" ;;
-  *) echo "$GATE_SUCCESSFUL_RUNS" ;;
-esac
-""",
-        )
-        github_env = self.root / "github-env"
-        github_output = self.root / "github-output"
-        result = subprocess.run(
-            ["bash", "-c", step["run"]],
-            cwd=self.repo,
-            env=dict(
-                self.env,
-                TRIGGER=trigger,
-                GH_REPO="test/underway",
-                GATE_MAIN_SHA=main_sha or self.sha,
-                GATE_SUCCESSFUL_RUNS=successful_runs,
-                GITHUB_ENV=str(github_env),
-                GITHUB_OUTPUT=str(github_output),
-            ),
-            text=True,
-            capture_output=True,
-            timeout=15,
-        )
-        return result, github_env, github_output
-
-    def test_workflow_deploys_exact_successful_main_commit(self) -> None:
-        result, github_env, github_output = self.gate("workflow_run")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(github_env.read_text(), "DEPLOY_SHA=" + self.sha + "\n")
-        self.assertEqual(github_output.read_text(), "deploy=true\n")
-        commands = self.log.read_text()
-        self.assertIn("-f head_sha=" + self.sha, commands)
-        self.assertIn("-f branch=main -f event=push -f status=success", commands)
-
-    def test_workflow_skips_superseded_automatic_commit(self) -> None:
-        result, github_env, github_output = self.gate("workflow_run", main_sha="f" * 40)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse(github_env.exists())
-        self.assertEqual(github_output.read_text(), "deploy=false\n")
-
-    def test_manual_deploy_requires_successful_main_ci(self) -> None:
-        result, github_env, github_output = self.gate("workflow_dispatch", successful_runs="0")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertFalse(github_env.exists())
-        self.assertFalse(github_output.exists())
-
-    def test_manual_deploy_can_redeploy_previously_tested_commit(self) -> None:
-        result, github_env, github_output = self.gate("workflow_dispatch", main_sha="f" * 40)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(github_env.read_text(), "DEPLOY_SHA=" + self.sha + "\n")
-        self.assertEqual(github_output.read_text(), "deploy=true\n")
 
 
 if __name__ == "__main__":

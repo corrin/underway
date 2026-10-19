@@ -317,16 +317,15 @@ EOF
 
 ### 15. GitHub Actions deployment
 
-Production deploys automatically after the `CI` workflow passes for a push to
-`main`. Pull requests and failed CI runs do not deploy. The workflow deploys the
-exact tested commit, skips superseded automatic runs, and serializes production
-deployments. Existing approval rules on the GitHub `production` environment still
-apply; remove a required reviewer there if unattended deployment is intended.
+CI runs on pull requests to `main`. A push or merge to `main` immediately starts
+production deployment of that commit; CI is not repeated after the merge and the
+deployment does not wait for another CI result. Production deployments are
+serialized. Existing GitHub `production` environment rules still apply.
 
-The manual **Deploy Prod (Oracle Cloud)** action is also available. Its `ref` must
-resolve to a commit with successful push CI on `main`. Use a full commit SHA when
-redeploying a previous release. The commit must include `scripts/deploy-prod.sh`.
-Deployments leave the server checkout detached at that SHA.
+The manual **Deploy Prod (Oracle Cloud)** action is also available for a commit,
+branch or tag. Use a full commit SHA when redeploying a previous release. The
+commit must include `scripts/deploy-prod.sh`. Deployments leave the server
+checkout detached at that SHA.
 
 Generate a deploy key on the server:
 ```bash
@@ -373,8 +372,8 @@ bash -n ../scripts/deploy-prod.sh
 shellcheck ../scripts/deploy-prod.sh
 ```
 
-These checks also run in CI. After merging, verify the **CI** and **Deploy Prod
-(Oracle Cloud)** runs in GitHub Actions and the public endpoints below.
+These checks run in PR CI. After merging, verify the **Deploy Prod (Oracle Cloud)**
+run in GitHub Actions and the public endpoints below.
 
 ---
 
