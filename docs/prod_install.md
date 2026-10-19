@@ -342,24 +342,10 @@ secrets. Reuse existing values where present:
 - `OC_SSH_HOST`: `www.underway.today` (or server IP)
 - `OC_SSH_USER`: `underway`
 - `OC_SSH_KEY`: the private key content from above
-- `OC_SSH_KNOWN_HOSTS`: a verified OpenSSH known-hosts entry for `OC_SSH_HOST`.
 
-Obtain the server's public host key through the Oracle console or an already
-trusted SSH session:
-
-```bash
-sudo cat /etc/ssh/ssh_host_ed25519_key.pub
-```
-
-For a host configured as `www.underway.today`, the saved entry has this form
-(replace the key with that server's actual public key):
-
-```text
-www.underway.today ssh-ed25519 <server-public-host-key>
-```
-
-The hostname must match `OC_SSH_HOST`, including when using the IP address.
-The workflow uses strict host-key verification. Application secrets remain in
+The workflow uses the existing `appleboy/ssh-action` deployment connection with
+these three secrets; no additional SSH secret is required. Application secrets
+remain in
 `/opt/underway/backend/.env`; they are not copied through GitHub Actions. The
 frontend's public `VITE_GOOGLE_CLIENT_ID` is read from the backend's
 `GOOGLE_CLIENT_ID` during the build. Google OAuth must allow the actual login

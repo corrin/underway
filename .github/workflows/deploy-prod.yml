@@ -69,33 +69,34 @@ jobs:
 
       - name: Deploy tested commit
         if: steps.commit.outputs.deploy == 'true'
+        uses: appleboy/ssh-action@v1
         env:
-          OC_SSH_HOST: ${{ secrets.OC_SSH_HOST }}
-          OC_SSH_USER: ${{ secrets.OC_SSH_USER }}
-          OC_SSH_KEY: ${{ secrets.OC_SSH_KEY }}
-          OC_SSH_KNOWN_HOSTS: ${{ secrets.OC_SSH_KNOWN_HOSTS }}
-        run: |
-          set -euo pipefail
-          : "${OC_SSH_HOST:?Set OC_SSH_HOST in the production environment}"
-          : "${OC_SSH_USER:?Set OC_SSH_USER in the production environment}"
-          : "${OC_SSH_KEY:?Set OC_SSH_KEY in the production environment}"
-          : "${OC_SSH_KNOWN_HOSTS:?Set verified OC_SSH_KNOWN_HOSTS in the production environment}"
-          [[ "$OC_SSH_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]
-          [[ "$OC_SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
-          [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]]
-          ssh_dir=$(mktemp -d)
-          trap 'rm -rf "$ssh_dir"' EXIT
-          chmod 700 "$ssh_dir"
-          printf '%s\n' "$OC_SSH_KEY" > "$ssh_dir/key"
-          printf '%s\n' "$OC_SSH_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
-          chmod 600 "$ssh_dir/key" "$ssh_dir/known_hosts"
-          # The deployment script runs as the service user for either supported SSH user.
-          remote_command="if [ \"\$(id -un)\" = underway ]; then bash -s -- '$DEPLOY_SHA'; else sudo -n -u underway -H bash -s -- '$DEPLOY_SHA'; fi"
-          ssh -i "$ssh_dir/key" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
-            -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$ssh_dir/known_hosts" \
-            "$OC_SSH_USER@$OC_SSH_HOST" "$remote_command" \
-            < scripts/deploy-prod.sh
+          DEPLOY_SHA: ${{ env.DEPLOY_SHA }}
+        with:
+          host: ${{ secrets.OC_SSH_HOST }}
+          username: ${{ secrets.OC_SSH_USER }}
+          key: ${{ secrets.OC_SSH_KEY }}
+          envs: DEPLOY_SHA
+          command_timeout: 15m
+          script: |
+            set -eu
+            # Run as the service user with either existing SSH user configuration.
+            run_as_underway() {
+              if [ "$(id -un)" = underway ]; then
+                "$@"
+              else
+                sudo -n -u underway -H "$@"
+              fi
+            }
+            run_as_underway bash -s -- "$DEPLOY_SHA" <<'DEPLOY'
+            set -euo pipefail
+            sha="$1"
+            [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+            cd /opt/underway
+            # Load the helper from the tested commit without assuming it is deployed yet.
+            git fetch --no-tags origin "$sha"
+            git show "$sha:scripts/deploy-prod.sh" | bash -s -- "$sha"
+            DEPLOY
 
       - name: Verify public API and login page
         if: steps.commit.outputs.deploy == 'true'
