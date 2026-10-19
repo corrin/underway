@@ -1,76 +1,110 @@
 name: Deploy Prod (Oracle Cloud)
 
 on:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
   workflow_dispatch:
     inputs:
       ref:
-        description: "Git ref to deploy (branch, tag, or SHA)"
-        required: false
-        default: "main"
+        description: "Commit, branch or tag with a successful main CI run"
+        required: true
+        default: main
+
+permissions:
+  contents: read
+  actions: read
+
+# Finish each deployment before starting another, including manual deployments.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
-    environment: production
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://underway.today/login
     steps:
-      - name: Deploy to Oracle Cloud
-        uses: appleboy/ssh-action@v1
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
+          persist-credentials: false
+
+      - name: Resolve commit and verify successful main CI
+        id: commit
         env:
-          # Passed as a value (not interpolated into the script text) to avoid
-          # template-injection; forwarded to the remote shell via `envs` below.
-          REF: ${{ github.event.inputs.ref }}
-        with:
-          host: ${{ secrets.OC_SSH_HOST }}
-          username: ${{ secrets.OC_SSH_USER }}
-          key: ${{ secrets.OC_SSH_KEY }}
-          envs: REF
-          script: |
-            set -euo pipefail
-            # Reject anything that isn't a plain git ref before it reaches a shell.
-            if ! printf '%s' "$REF" | grep -qE '^[A-Za-z0-9._/-]+$'; then
-              echo "Refusing to deploy unsafe ref: $REF" >&2
-              exit 1
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TRIGGER: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          if [ "$TRIGGER" = workflow_run ]; then
+            main_sha=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
+            if [ "$sha" != "$main_sha" ]; then
+              echo "Skipping superseded automatic deployment of $sha"
+              echo 'deploy=false' >> "$GITHUB_OUTPUT"
+              exit 0
             fi
-            # /opt/underway is owned by the `underway` user, which also runs the
-            # service. Build and migrate AS that user (ref passed as $1); the ssh
-            # user `ubuntu` only holds sudo rights to switch users and restart.
-            sudo -u underway -H bash -s "$REF" <<'DEPLOY'
-            set -euo pipefail
-            REF="$1"
-            export PATH="$HOME/.local/bin:$PATH"
-            cd /opt/underway
-            git fetch origin
-            git checkout "$REF"
-            git pull --ff-only origin "$REF"
-
-            cd backend
-            poetry install --no-interaction --no-ansi
-            poetry run alembic upgrade head
-
-            cd ../frontend
-            npm ci
-            npm run build
-            DEPLOY
-
-            sudo systemctl restart underway
-            sudo systemctl reload nginx
-
-      - name: Health check
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.OC_SSH_HOST }}
-          username: ${{ secrets.OC_SSH_USER }}
-          key: ${{ secrets.OC_SSH_KEY }}
-          script: |
-            # Poll until the service is back up — a restart takes ~10s, so a
-            # single fixed sleep races the app's startup and false-fails.
-            for i in $(seq 1 30); do
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/api/health || true)
-              if [ "$STATUS" = "200" ]; then
-                echo "Health check passed (HTTP 200) after ${i} attempt(s)"
-                exit 0
-              fi
-              sleep 2
-            done
-            echo "Health check failed (last status: ${STATUS:-none})" >&2
+          fi
+          successful_runs=$(gh api --method GET \
+            "repos/$GH_REPO/actions/workflows/ci.yml/runs" \
+            -f head_sha="$sha" -f branch=main -f event=push -f status=success \
+            --jq '.workflow_runs | length')
+          if [ "$successful_runs" -eq 0 ]; then
+            echo "No successful main CI run for $sha" >&2
             exit 1
+          fi
+          echo "DEPLOY_SHA=$sha" >> "$GITHUB_ENV"
+          echo 'deploy=true' >> "$GITHUB_OUTPUT"
+
+      - name: Deploy tested commit
+        if: steps.commit.outputs.deploy == 'true'
+        env:
+          OC_SSH_HOST: ${{ secrets.OC_SSH_HOST }}
+          OC_SSH_USER: ${{ secrets.OC_SSH_USER }}
+          OC_SSH_KEY: ${{ secrets.OC_SSH_KEY }}
+          OC_SSH_KNOWN_HOSTS: ${{ secrets.OC_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          : "${OC_SSH_HOST:?Set OC_SSH_HOST in the production environment}"
+          : "${OC_SSH_USER:?Set OC_SSH_USER in the production environment}"
+          : "${OC_SSH_KEY:?Set OC_SSH_KEY in the production environment}"
+          : "${OC_SSH_KNOWN_HOSTS:?Set verified OC_SSH_KNOWN_HOSTS in the production environment}"
+          [[ "$OC_SSH_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]
+          [[ "$OC_SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]]
+          ssh_dir=$(mktemp -d)
+          trap 'rm -rf "$ssh_dir"' EXIT
+          chmod 700 "$ssh_dir"
+          printf '%s\n' "$OC_SSH_KEY" > "$ssh_dir/key"
+          printf '%s\n' "$OC_SSH_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          chmod 600 "$ssh_dir/key" "$ssh_dir/known_hosts"
+          # The deployment script runs as the service user for either supported SSH user.
+          remote_command="if [ \"\$(id -un)\" = underway ]; then bash -s -- '$DEPLOY_SHA'; else sudo -n -u underway -H bash -s -- '$DEPLOY_SHA'; fi"
+          ssh -i "$ssh_dir/key" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$ssh_dir/known_hosts" \
+            "$OC_SSH_USER@$OC_SSH_HOST" "$remote_command" \
+            < scripts/deploy-prod.sh
+
+      - name: Verify public API and login page
+        if: steps.commit.outputs.deploy == 'true'
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --max-time 15 \
+            --retry 10 --retry-delay 2 --retry-connrefused --retry-all-errors \
+            https://underway.today/api/health \
+            | python3 -c 'import json, sys; assert json.load(sys.stdin) == {"status": "ok"}'
+          curl --fail --silent --show-error --location --max-time 15 \
+            https://underway.today/login \
+            | python3 -c 'import sys; page = sys.stdin.read(); assert "id=\"app\"" in page and "type=\"module\"" in page'

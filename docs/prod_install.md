@@ -216,6 +216,7 @@ poetry run alembic upgrade head
 
 ```bash
 cd /opt/underway/frontend
+export VITE_GOOGLE_CLIENT_ID="$(cd ../backend && poetry run python -c 'from underway.config import get_settings; print(get_settings().google_client_id)')"
 npm ci
 npm run build
 ```
@@ -314,7 +315,18 @@ underway ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart underway, /usr/bin/syste
 EOF
 ```
 
-### 15. GitHub Actions deploy secrets
+### 15. GitHub Actions deployment
+
+Production deploys automatically after the `CI` workflow passes for a push to
+`main`. Pull requests and failed CI runs do not deploy. The workflow deploys the
+exact tested commit, skips superseded automatic runs, and serializes production
+deployments. Existing approval rules on the GitHub `production` environment still
+apply; remove a required reviewer there if unattended deployment is intended.
+
+The manual **Deploy Prod (Oracle Cloud)** action is also available. Its `ref` must
+resolve to a commit with successful push CI on `main`. Use a full commit SHA when
+redeploying a previous release. The commit must include `scripts/deploy-prod.sh`.
+Deployments leave the server checkout detached at that SHA.
 
 Generate a deploy key on the server:
 ```bash
@@ -325,10 +337,58 @@ cat ~/.ssh/underway_deploy   # copy this private key
 exit
 ```
 
-In GitHub repo Settings > Secrets > Actions, add:
+In GitHub repo Settings > Environments > `production`, configure these Actions
+secrets. Reuse existing values where present:
 - `OC_SSH_HOST`: `www.underway.today` (or server IP)
 - `OC_SSH_USER`: `underway`
 - `OC_SSH_KEY`: the private key content from above
+- `OC_SSH_KNOWN_HOSTS`: a verified OpenSSH known-hosts entry for `OC_SSH_HOST`.
+
+Obtain the server's public host key through the Oracle console or an already
+trusted SSH session:
+
+```bash
+sudo cat /etc/ssh/ssh_host_ed25519_key.pub
+```
+
+For a host configured as `www.underway.today`, the saved entry has this form
+(replace the key with that server's actual public key):
+
+```text
+www.underway.today ssh-ed25519 <server-public-host-key>
+```
+
+The hostname must match `OC_SSH_HOST`, including when using the IP address.
+The workflow uses strict host-key verification. Application secrets remain in
+`/opt/underway/backend/.env`; they are not copied through GitHub Actions. The
+frontend's public `VITE_GOOGLE_CLIENT_ID` is read from the backend's
+`GOOGLE_CLIENT_ID` during the build. Google OAuth must allow the actual login
+origin and callback, including `https://underway.today` if used without `www`.
+
+The deployment accepts the documented `underway` SSH user directly. If existing
+access uses `ubuntu`, it must be able to run `sudo -n -u underway -H bash`.
+The service user needs the service-restart sudo permission from step 14, a working
+Git origin credential, Python 3.12+, Poetry and Node 22.12+.
+
+The server script refuses tracked local edits and `TESTING=true`, installs locked
+dependencies, builds the frontend, applies migrations, restarts the API, and polls
+its local health endpoint. GitHub then checks the public API response and Vue login
+HTML over HTTPS. It does not sign in to Google or automatically roll back database
+migrations. A failed build stops before migrations and API restart; the checkout
+and installed dependencies may already have changed. The frontend build writes to
+the existing `dist` directory, so deployment is not atomic.
+
+Validate deployment changes locally with:
+
+```bash
+cd backend
+poetry run python -m unittest discover -s ../scripts/tests -v
+bash -n ../scripts/deploy-prod.sh
+shellcheck ../scripts/deploy-prod.sh
+```
+
+These checks also run in CI. After merging, verify the **CI** and **Deploy Prod
+(Oracle Cloud)** runs in GitHub Actions and the public endpoints below.
 
 ---
 
@@ -343,8 +403,8 @@ curl https://www.underway.today/api/health
 
 ```bash
 ssh underway@www.underway.today
-cd /opt/underway && git pull origin main
-cd backend && poetry install && poetry run alembic upgrade head
-cd ../frontend && npm ci && npm run build
-sudo systemctl restart underway
+cd /opt/underway
+git fetch origin main
+# Choose an exact commit already validated by main CI.
+bash scripts/deploy-prod.sh <full-tested-commit-sha>
 ```

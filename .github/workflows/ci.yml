@@ -47,6 +47,12 @@ jobs:
           key: poetry-${{ runner.os }}-py3.12-${{ hashFiles('backend/poetry.lock') }}
       - name: Install dependencies
         run: poetry install
+      - name: Check deployment script
+        run: |
+          bash -n ../scripts/deploy-prod.sh
+          shellcheck ../scripts/deploy-prod.sh
+      - name: Test deployment behavior
+        run: poetry run python -m unittest discover -s ../scripts/tests -v
       - name: mypy
         run: poetry run mypy underway --strict
       - name: ruff check
