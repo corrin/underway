@@ -15,6 +15,7 @@ import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from underway.scheduling.adapters import (
     busy_from_payload,
@@ -55,13 +56,19 @@ def run(argv: list[str] | None = None) -> dict[str, Any]:
     cfg = load_config(a.config)
     start = date.fromisoformat(a.start)
     now = datetime.fromisoformat(a.now) if a.now else None
+    if now is not None and now.tzinfo is not None:
+        now = now.astimezone(ZoneInfo(cfg.timezone)).replace(tzinfo=None)
+    else:
+        pass  # absent or already a naive local wall time
     mins = minutes_by_area(Path(a.timelog).read_text(), start - timedelta(days=28), start)
     boosts = area_balance(mins, cfg)
     cooking = {date.fromisoformat(x) for x in a.cooking.split(",") if x}
     events = unwrap(Path(a.events).read_text())
-    pinned = pinned_from_payload(events, start) if a.keep_today else []
+    pinned = pinned_from_payload(events, start, cfg.timezone) if a.keep_today else []
     tasks = tasks_from_payload(unwrap(Path(a.tasks).read_text()), cfg)
-    blocks = schedule(tasks, busy_from_payload(events), start, a.days, cfg, boosts, cooking, now, pinned=pinned)
+    blocks = schedule(
+        tasks, busy_from_payload(events, cfg.timezone), start, a.days, cfg, boosts, cooking, now, pinned=pinned
+    )
     keep = {(p.task_id, p.start) for p in pinned}
     return {
         "boosts": boosts,

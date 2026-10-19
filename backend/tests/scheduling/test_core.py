@@ -11,7 +11,13 @@ from typing import Any
 
 import pytest
 
-from underway.scheduling.adapters import minutes_by_area, task_from_todoist
+from underway.scheduling.adapters import (
+    busy_from_payload,
+    minutes_by_area,
+    pinned_from_payload,
+    task_from_todoist,
+    unwrap,
+)
 from underway.scheduling.cli import load_config, run
 from underway.scheduling.config import SchedulerConfig, config_from_dict
 from underway.scheduling.core import Block, Busy, Task, area_balance, is_weekend, schedule
@@ -154,6 +160,67 @@ def test_sheet_serial_dates() -> None:
 
 def test_example_config_loads() -> None:
     assert load_config(str(Path(__file__).parents[2] / "underway/scheduling/config.example.json")).areas
+
+
+def test_unwrap_earliest_opener_to_matching_closer() -> None:
+    assert unwrap('Result: [{"id": "a"}] done') == [{"id": "a"}]
+    assert unwrap('note {"msg": "see } this"} tail }') == {"msg": "see } this"}
+    with pytest.raises(ValueError, match="no JSON payload found"):
+        unwrap("nothing to parse")
+
+
+def test_aware_event_times_convert_to_cfg_timezone() -> None:
+    tz = "Pacific/Auckland"
+    payload = {
+        "events": [
+            {
+                "summary": "UTC meeting",
+                "start": {"dateTime": "2030-03-05T07:00:00Z"},
+                "end": {"dateTime": "2030-03-05T08:00:00Z"},
+            },
+            {
+                "summary": "Local",
+                "start": {"dateTime": "2030-03-05T17:00:00"},
+                "end": {"dateTime": "2030-03-05T18:00:00"},
+            },
+            {
+                "summary": "[80] Kept",
+                "description": "https://app.todoist.com/app/task/task-a\npqm",
+                "start": {"dateTime": "2030-03-05T18:00:00Z"},
+                "end": {"dateTime": "2030-03-05T19:00:00Z"},
+            },
+        ]
+    }
+    busy = busy_from_payload(payload, tz)
+    assert [(b.start, b.end, b.start.tzinfo) for b in busy] == [
+        (datetime(2030, 3, 5, 20, 0), datetime(2030, 3, 5, 21, 0), None),
+        (datetime(2030, 3, 5, 17, 0), datetime(2030, 3, 5, 18, 0), None),
+    ]
+    assert pinned_from_payload(payload, date(2030, 3, 5), tz) == []
+    pinned = pinned_from_payload(payload, date(2030, 3, 6), tz)
+    assert pinned[0].start == datetime(2030, 3, 6, 7, 0)
+    assert pinned[0].start.tzinfo is None
+
+
+def test_cli_aware_now_is_naive_in_cfg_timezone(tmp_path: Path) -> None:
+    tasks = tmp_path / "tasks.json"
+    task = {"id": "t1", "content": "[80] Now", "projectId": "proj-work", "labels": []}
+    tasks.write_text(json.dumps({"tasks": [task]}))
+    events = tmp_path / "events.json"
+    events.write_text('{"events": []}\n')
+    out = run(
+        [
+            "--config", str(FIX / "config.test.json"),
+            "--tasks", str(tasks),
+            "--events", str(events),
+            "--timelog", str(FIX / "timelog.csv"),
+            "--start", "2030-03-04",
+            "--days", "1",
+            "--now", "2030-03-04T18:00:00+13:00",
+        ]
+    )  # fmt: skip
+    # 18:00+13 is 05:00 in Etc/UTC, so the 17:00 window is still open.
+    assert out["blocks"][0]["startTime"] == "2030-03-04T17:00:00"
 
 
 def test_cli_with_fixtures() -> None:

@@ -8,6 +8,7 @@ import json
 import re
 from datetime import date, datetime, time, timedelta
 from typing import Any, cast
+from zoneinfo import ZoneInfo
 
 from underway.scheduling.config import SchedulerConfig
 from underway.scheduling.core import Block, Busy, Task
@@ -23,10 +24,47 @@ Payload = dict[str, object] | list[object]
 
 def unwrap(text: str) -> Payload:
     """Parse JSON that may be wrapped in connector chatter."""
-    stripped = text.lstrip()
-    first = text.index("[") if stripped.startswith("[") else text.index("{")
-    last = max(text.rfind("}"), text.rfind("]"))
+    starts = [i for i in (text.find("["), text.find("{")) if i != -1]
+    if not starts:
+        raise ValueError("no JSON payload found")
+    else:
+        pass  # an opener exists
+    first = min(starts)
+    last = _json_end(text, first)
     return cast(Payload, json.loads(text[first : last + 1]))
+
+
+def _json_end(text: str, first: int) -> int:
+    """Index of the closer that matches the JSON opener at ``first``."""
+    opener = text[first]
+    closer = "]" if opener == "[" else "}"
+    depth = 0
+    in_string = False
+    escape = False
+    for i in range(first, len(text)):
+        ch = text[i]
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            else:
+                pass  # string content
+        elif ch == '"':
+            in_string = True
+        elif ch == opener:
+            depth += 1
+        elif ch == closer:
+            depth -= 1
+            if depth == 0:
+                return i
+            else:
+                pass  # nested value still open
+        else:
+            pass  # unrelated character
+    raise ValueError("unbalanced JSON payload")
 
 
 def _rows(payload: Payload, key: str) -> list[dict[str, Any]]:
@@ -68,9 +106,15 @@ def tasks_from_payload(payload: Payload, cfg: SchedulerConfig) -> list[Task]:
     return out
 
 
-def _dt(v: dict[str, Any]) -> datetime:
+def _dt(v: dict[str, Any], tz: str) -> datetime:
+    """Wall time in ``tz``. Aware values are converted; naive values stay as given."""
     if "dateTime" in v:
-        return datetime.fromisoformat(str(v["dateTime"])).replace(tzinfo=None)  # local wall time
+        dt = datetime.fromisoformat(str(v["dateTime"]))
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(ZoneInfo(tz))
+        else:
+            pass  # already a naive local wall time
+        return dt.replace(tzinfo=None)
     else:
         return datetime.combine(date.fromisoformat(str(v["date"])), time(0))
 
@@ -79,15 +123,15 @@ def is_pqm(e: dict[str, Any]) -> bool:
     return (e.get("description") or "").strip().splitlines()[-1:] == ["pqm"]
 
 
-def busy_from_payload(payload: Payload) -> list[Busy]:
+def busy_from_payload(payload: Payload, tz: str) -> list[Busy]:
     return [
-        Busy(_dt(e["start"]), _dt(e["end"]), str(e.get("summary", "")))
+        Busy(_dt(e["start"], tz), _dt(e["end"], tz), str(e.get("summary", "")))
         for e in _rows(payload, "events")
         if e.get("status") != "cancelled" and not is_pqm(e) and e.get("transparency") != "transparent"
     ]
 
 
-def pinned_from_payload(payload: Payload, day: date) -> list[Block]:
+def pinned_from_payload(payload: Payload, day: date, tz: str) -> list[Block]:
     """Existing pqm blocks on ``day``: today's plan stays as already announced."""
     out: list[Block] = []
     for e in _rows(payload, "events"):
@@ -95,7 +139,7 @@ def pinned_from_payload(payload: Payload, day: date) -> list[Block]:
             continue
         else:
             pass  # live pqm block
-        s, en = _dt(e["start"]), _dt(e["end"])
+        s, en = _dt(e["start"], tz), _dt(e["end"], tz)
         if s.date() != day:
             continue
         else:
