@@ -1,0 +1,14 @@
+{
+ "events": [
+  {
+   "id": "e1",
+   "summary": "Appointment",
+   "start": {
+    "dateTime": "2030-03-05T17:00:00"
+   },
+   "end": {
+    "dateTime": "2030-03-05T18:00:00"
+   }
+  }
+ ]
+}
