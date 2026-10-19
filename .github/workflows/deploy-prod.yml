@@ -1,20 +1,17 @@
 name: Deploy Prod (Oracle Cloud)
 
 on:
-  workflow_run:
-    workflows: [CI]
+  push:
     branches: [main]
-    types: [completed]
   workflow_dispatch:
     inputs:
       ref:
-        description: "Commit, branch or tag with a successful main CI run"
+        description: "Commit, branch or tag to deploy"
         required: true
         default: main
 
 permissions:
   contents: read
-  actions: read
 
 # Finish each deployment before starting another, including manual deployments.
 concurrency:
@@ -23,11 +20,6 @@ concurrency:
 
 jobs:
   deploy:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
@@ -36,69 +28,43 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
+          ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
 
-      - name: Resolve commit and verify successful main CI
-        id: commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TRIGGER: ${{ github.event_name }}
-        run: |
-          set -euo pipefail
-          sha=$(git rev-parse HEAD)
-          if [ "$TRIGGER" = workflow_run ]; then
-            main_sha=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
-            if [ "$sha" != "$main_sha" ]; then
-              echo "Skipping superseded automatic deployment of $sha"
-              echo 'deploy=false' >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          fi
-          successful_runs=$(gh api --method GET \
-            "repos/$GH_REPO/actions/workflows/ci.yml/runs" \
-            -f head_sha="$sha" -f branch=main -f event=push -f status=success \
-            --jq '.workflow_runs | length')
-          if [ "$successful_runs" -eq 0 ]; then
-            echo "No successful main CI run for $sha" >&2
-            exit 1
-          fi
-          echo "DEPLOY_SHA=$sha" >> "$GITHUB_ENV"
-          echo 'deploy=true' >> "$GITHUB_OUTPUT"
+      - name: Resolve deployment commit
+        run: echo "DEPLOY_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
-      - name: Deploy tested commit
-        if: steps.commit.outputs.deploy == 'true'
+      - name: Deploy commit
+        uses: appleboy/ssh-action@v1
         env:
-          OC_SSH_HOST: ${{ secrets.OC_SSH_HOST }}
-          OC_SSH_USER: ${{ secrets.OC_SSH_USER }}
-          OC_SSH_KEY: ${{ secrets.OC_SSH_KEY }}
-          OC_SSH_KNOWN_HOSTS: ${{ secrets.OC_SSH_KNOWN_HOSTS }}
-        run: |
-          set -euo pipefail
-          : "${OC_SSH_HOST:?Set OC_SSH_HOST in the production environment}"
-          : "${OC_SSH_USER:?Set OC_SSH_USER in the production environment}"
-          : "${OC_SSH_KEY:?Set OC_SSH_KEY in the production environment}"
-          : "${OC_SSH_KNOWN_HOSTS:?Set verified OC_SSH_KNOWN_HOSTS in the production environment}"
-          [[ "$OC_SSH_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]
-          [[ "$OC_SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
-          [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]]
-          ssh_dir=$(mktemp -d)
-          trap 'rm -rf "$ssh_dir"' EXIT
-          chmod 700 "$ssh_dir"
-          printf '%s\n' "$OC_SSH_KEY" > "$ssh_dir/key"
-          printf '%s\n' "$OC_SSH_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
-          chmod 600 "$ssh_dir/key" "$ssh_dir/known_hosts"
-          # The deployment script runs as the service user for either supported SSH user.
-          remote_command="if [ \"\$(id -un)\" = underway ]; then bash -s -- '$DEPLOY_SHA'; else sudo -n -u underway -H bash -s -- '$DEPLOY_SHA'; fi"
-          ssh -i "$ssh_dir/key" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=15 \
-            -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$ssh_dir/known_hosts" \
-            "$OC_SSH_USER@$OC_SSH_HOST" "$remote_command" \
-            < scripts/deploy-prod.sh
+          DEPLOY_SHA: ${{ env.DEPLOY_SHA }}
+        with:
+          host: ${{ secrets.OC_SSH_HOST }}
+          username: ${{ secrets.OC_SSH_USER }}
+          key: ${{ secrets.OC_SSH_KEY }}
+          envs: DEPLOY_SHA
+          command_timeout: 15m
+          script: |
+            set -eu
+            # Run as the service user with either existing SSH user configuration.
+            run_as_underway() {
+              if [ "$(id -un)" = underway ]; then
+                "$@"
+              else
+                sudo -n -u underway -H "$@"
+              fi
+            }
+            run_as_underway bash -s -- "$DEPLOY_SHA" <<'DEPLOY'
+            set -euo pipefail
+            sha="$1"
+            [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+            cd /opt/underway
+            # Load the helper from the deployment commit without assuming it is deployed yet.
+            git fetch --no-tags origin "$sha"
+            git show "$sha:scripts/deploy-prod.sh" | bash -s -- "$sha"
+            DEPLOY
 
       - name: Verify public API and login page
-        if: steps.commit.outputs.deploy == 'true'
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --location --max-time 15 \

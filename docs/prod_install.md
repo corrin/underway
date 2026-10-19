@@ -317,16 +317,15 @@ EOF
 
 ### 15. GitHub Actions deployment
 
-Production deploys automatically after the `CI` workflow passes for a push to
-`main`. Pull requests and failed CI runs do not deploy. The workflow deploys the
-exact tested commit, skips superseded automatic runs, and serializes production
-deployments. Existing approval rules on the GitHub `production` environment still
-apply; remove a required reviewer there if unattended deployment is intended.
+CI runs on pull requests to `main`. A push or merge to `main` immediately starts
+production deployment of that commit; CI is not repeated after the merge and the
+deployment does not wait for another CI result. Production deployments are
+serialized. Existing GitHub `production` environment rules still apply.
 
-The manual **Deploy Prod (Oracle Cloud)** action is also available. Its `ref` must
-resolve to a commit with successful push CI on `main`. Use a full commit SHA when
-redeploying a previous release. The commit must include `scripts/deploy-prod.sh`.
-Deployments leave the server checkout detached at that SHA.
+The manual **Deploy Prod (Oracle Cloud)** action is also available for a commit,
+branch or tag. Use a full commit SHA when redeploying a previous release. The
+commit must include `scripts/deploy-prod.sh`. Deployments leave the server
+checkout detached at that SHA.
 
 Generate a deploy key on the server:
 ```bash
@@ -342,24 +341,10 @@ secrets. Reuse existing values where present:
 - `OC_SSH_HOST`: `www.underway.today` (or server IP)
 - `OC_SSH_USER`: `underway`
 - `OC_SSH_KEY`: the private key content from above
-- `OC_SSH_KNOWN_HOSTS`: a verified OpenSSH known-hosts entry for `OC_SSH_HOST`.
 
-Obtain the server's public host key through the Oracle console or an already
-trusted SSH session:
-
-```bash
-sudo cat /etc/ssh/ssh_host_ed25519_key.pub
-```
-
-For a host configured as `www.underway.today`, the saved entry has this form
-(replace the key with that server's actual public key):
-
-```text
-www.underway.today ssh-ed25519 <server-public-host-key>
-```
-
-The hostname must match `OC_SSH_HOST`, including when using the IP address.
-The workflow uses strict host-key verification. Application secrets remain in
+The workflow uses the existing `appleboy/ssh-action` deployment connection with
+these three secrets; no additional SSH secret is required. Application secrets
+remain in
 `/opt/underway/backend/.env`; they are not copied through GitHub Actions. The
 frontend's public `VITE_GOOGLE_CLIENT_ID` is read from the backend's
 `GOOGLE_CLIENT_ID` during the build. Google OAuth must allow the actual login
@@ -387,8 +372,8 @@ bash -n ../scripts/deploy-prod.sh
 shellcheck ../scripts/deploy-prod.sh
 ```
 
-These checks also run in CI. After merging, verify the **CI** and **Deploy Prod
-(Oracle Cloud)** runs in GitHub Actions and the public endpoints below.
+These checks run in PR CI. After merging, verify the **Deploy Prod (Oracle Cloud)**
+run in GitHub Actions and the public endpoints below.
 
 ---
 
