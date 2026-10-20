@@ -1,5 +1,8 @@
 # Migration Overview: virtual_assistant -> underway (FastREST)
 
+> Historical migration overview. See [current delivery plans](README.md) for
+> integration testing, canonical task/time data and library-based scheduling.
+
 ## Why We're Doing This
 
 The virtual_assistant codebase works, but accumulated tech debt: no type checking, no OpenAPI contract, Flask's sync model fighting against async providers, `db.session` globals scattered through business logic, mixed HTML/JSON endpoints, and inconsistent patterns across modules. The kind of ugliness you only see clearly after building the first version.
