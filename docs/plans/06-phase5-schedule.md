@@ -1,5 +1,9 @@
 # Phase 5: Schedule Generation
 
+> Historical migration draft. The current [library-based scheduling plan](2026-10-20-library-based-scheduling.md)
+> supersedes LLM slot generation and direct calendar publishing here. See the
+> [delivery order](README.md) for dependencies and the recommended next task.
+
 ## Goal
 
 Port the AI-driven schedule generation system that reads tasks + calendar, generates a daily schedule, and optionally adds events to the calendar.
